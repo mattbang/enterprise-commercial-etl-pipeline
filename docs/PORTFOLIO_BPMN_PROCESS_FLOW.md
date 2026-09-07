@@ -9,7 +9,7 @@
 
 ## High-Level Orchestration Flow
 
-The top-level orchestration model links four operational lanes. It covers SAP sales downloads, MedTech Europe market reference data, Salesforce-entered forecast updates, internally led sales and market-share forecasts, and Qlik Sense reporting for regional finance stakeholders across 9 countries. The resulting dashboards helped management set goals and benchmark business performance with a much shorter delay after forecast changes. The editable BPMN source contains the collapsed sub-processes, and the exported PNG below is the current portfolio-safe rendering.
+The top-level orchestration model links four operational lanes. It covers SAP sales downloads, MedTech Europe market reference data where available, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, internally led sales and market-share forecasts, and Qlik Sense reporting for regional finance stakeholders across 9 countries. The resulting dashboards helped management set goals and benchmark business performance with a much shorter delay after forecast changes. The editable BPMN source contains the collapsed sub-processes, and the exported PNG below is the current portfolio-safe rendering.
 
 ![Portfolio-safe commercial ETL orchestration BPMN export](pipeline_orchestration.png)
 
@@ -84,7 +84,7 @@ Opening [docs/pipeline_orchestration.bpmn](pipeline_orchestration.bpmn) in **Cam
 * **Granular Operations:**
   1. `Task_DL_InitSession`: Attaches to persistent Chrome user profile (`chrome_profile_path`), bypassing interactive sign-in prompts.
   2. `Task_DL_SapSales`: Downloads SAP sales actuals for the current reporting cycle.
-  3. `Task_DL_MedTechMarket`: Stages MedTech Europe market reference data for market-share denominators.
+  3. `Task_DL_MarketSources`: Stages MedTech Europe market reference data where available plus separate diagnostics/ICM market inputs for product families not reported by MedTech Europe.
   4. `Task_DL_Forecasts`: Extracts Salesforce-entered forecast updates plus internally maintained sales forecast and market-share forecast inputs from the planning process led by the pipeline owner during the production period.
   5. `Task_DL_VerifyFiles`: Monitors the OS download folder, polling until `.crdownload` temporary buffers finish and asserting minimum file sizes ($>50\text{ KB}$).
 * **Exit Milestone:** All 4 raw extracts staged in `data/in/`.

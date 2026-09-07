@@ -9,7 +9,7 @@
 
 ## 📌 Executive Summary
 
-To serve regional finance across **9 countries**, commercial leadership required frequently refreshed Qlik Sense dashboards reconciling SAP sales actuals, MedTech Europe market data, Salesforce-entered forecast updates, and forward-looking sales and market-share forecasts maintained through an internal market-forecasting process I led during my tenure.
+To serve regional finance across **9 countries**, commercial leadership required frequently refreshed Qlik Sense dashboards reconciling SAP sales actuals, MedTech Europe market data where available, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, and forward-looking sales and market-share forecasts maintained through an internal market-forecasting process I led during my tenure.
 
 Previously, this process was performed manually: downloading raw sales, market, and forecast extracts, cleaning and standardizing varying European number formats in Excel, merging records, and hand-validating figures before Qlik Sense consumption. This manual workflow consumed **6 to 8 hours per cycle**, was vulnerable to human error, slowed the turnaround from forecast changes to updated management visuals, and created a critical single-person operational dependency.
 
@@ -35,9 +35,10 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 ```
    ┌────────────────────────────────────────────────────────────────────────┐
    │                       MULTI-SOURCE INGESTION                           │
-   │  SAP Sales Actuals     MedTech Europe Market   Salesforce Updates      │
-   │  (Historical Sales)    (Market Reference)      (Manual Forecast Edits) │
-   │  Internal Forecasting  (Sales & Market-Share Plans)                    │
+   │  SAP Sales Actuals     MedTech Europe Market   Diagnostics/ICM Source  │
+   │  (Historical Sales)    (Market Where Avail.)   (Separate Market Input) │
+   │  Salesforce Updates    Internal Forecasting                            │
+   │  (Manual Edits)        (Sales & Market-Share Plans)                    │
    └───────────────────┬────────────────────────────────────────────────────┘
                        │ Automated Headless Browser Ingestion (Selenium + Auth)
                        ▼
@@ -71,7 +72,7 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 ## ⚙️ Core Technical Highlights
 
 1. **Multi-Scenario Commercial Modeling:**
-   Automated the dynamic disaggregation of SAP sales actuals, MedTech Europe market references, Salesforce-entered forecast updates, and internally led sales and market-share forecasts across three strategic views (**Full Market**, **Addressable Market**, and **Addressable Weighted Market**), eliminating error-prone manual Excel modeling.
+   Automated the dynamic disaggregation of SAP sales actuals, MedTech Europe market references where available, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, and internally led sales and market-share forecasts across three strategic views (**Full Market**, **Addressable Market**, and **Addressable Weighted Market**), eliminating error-prone manual Excel modeling.
 
 2. **Defense-in-Depth Quality Assurance and Blocking Publication:**
    Engineered 17 independent automated checks categorized into:

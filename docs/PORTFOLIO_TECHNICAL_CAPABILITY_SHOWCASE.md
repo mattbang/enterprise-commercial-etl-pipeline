@@ -36,7 +36,7 @@ Manually maintaining three separate versions of quarterly reports previously req
 The pipeline loads raw actuals and external quarterly estimates, applies specialized clinical product splits (e.g., separating single-chamber from dual-chamber leadless lines), and automatically synthesizes all three reporting scenarios within a unified dataset:
 
 ```
-[Raw CRM Actuals] + [Quarterly Diagnostics] + [Corporate Forecasts]
+[SAP Actuals] + [Market Sources] + [Salesforce Updates] + [Forecast Plans]
                               │
                               ▼
         ┌───────────────────────────────────────────┐
@@ -61,7 +61,7 @@ for macro strategy  competitive scope      commercial index
 ### 2. Resilient Headless Ingestion & Session Management
 
 #### The Challenge
-Data feeds originated from SAP sales downloads, MedTech Europe market reference files, Salesforce-entered employee forecast updates, and internally maintained sales forecast and market-share forecast inputs. The forecasting process was led by the pipeline owner during the production period and served regional finance reporting across 9 countries. Private source connectors are excluded from the public repository.
+Data feeds originated from SAP sales downloads, MedTech Europe market reference files where available, separate diagnostics/ICM market inputs for product families not reported by MedTech Europe, Salesforce-entered employee forecast updates, and internally maintained sales forecast and market-share forecast inputs. The forecasting process was led by the pipeline owner during the production period and served regional finance reporting across 9 countries. Private source connectors are excluded from the public repository, and the exact diagnostics/ICM source name is intentionally omitted in the public case study.
 
 #### The Solution (`integration/downloaders/`)
 Built an enterprise-grade web scraping and file ingestion layer using **Selenium WebDriver**:

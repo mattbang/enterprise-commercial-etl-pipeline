@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mattbang/enterprise-commercial-etl-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mattbang/enterprise-commercial-etl-pipeline/actions/workflows/ci.yml)
 
-**Three reporting views, consistent organization totals, and quality checks that block invalid output.** This Python project turns SAP sales downloads, MedTech Europe market data, Salesforce forecast updates, and internally managed sales and market-share forecasts into Full, Addressable, and Weighted market scenarios for regional finance teams across 9 countries. The production workflow reduced turnaround time between forecast updates and refreshed management visuals used for goal setting and performance benchmarking. A runnable synthetic demo makes the transformations and controls easy to inspect.
+**Three reporting views, consistent organization totals, and quality checks that block invalid output.** This Python project turns SAP sales downloads, MedTech Europe market data where available, separate diagnostics/ICM market inputs, Salesforce forecast updates, and internally managed sales and market-share forecasts into Full, Addressable, and Weighted market scenarios for regional finance teams across 9 countries. The production workflow reduced turnaround time between forecast updates and refreshed management visuals used for goal setting and performance benchmarking. A runnable synthetic demo makes the transformations and controls easy to inspect.
 
 Built by [Matthew Bangle](https://www.linkedin.com/in/matthew-bangle/), working across business analysis, data quality, reporting automation, and operational handover.
 
@@ -50,7 +50,7 @@ This injects a capacity violation. Nine checks pass and one fails; the process e
 The project connects business definitions to testable reporting logic:
 
 - Defined reporting grain, product mappings, territory rules, and three market scenarios.
-- Integrated SAP sales actuals, MedTech Europe market references, Salesforce-entered forecast updates, internally led forecast inputs, and Qlik Sense reporting outputs into one governed flow.
+- Integrated SAP sales actuals, MedTech Europe market references, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, internally led forecast inputs, and Qlik Sense reporting outputs into one governed flow.
 - Implemented Python loading, numeric normalization, transformation, and reconciliation.
 - Added checks for schema, mappings, capacity, conservation, and publication readiness.
 - Designed orchestration with explicit success, failure, and unverified outcomes.
@@ -83,7 +83,7 @@ The production-reference sequence extends this with validated CSV publication, Q
 | Public demo | Python, pandas, NumPy, YAML: load, transform, and apply rules |
 | Validation and tests | Pandera, pytest, openpyxl: contracts, regressions, and workbook fixtures |
 | Continuous integration | GitHub Actions on Python 3.10 and 3.12 |
-| Production case study | SAP sales downloads, Salesforce forecast updates, MedTech Europe market data, internal sales and market-share forecasts, Qlik Sense reporting, BPMN 2.0 process documentation |
+| Production case study | SAP sales downloads, Salesforce forecast updates, MedTech Europe market data where available, separate diagnostics/ICM market inputs, internal sales and market-share forecasts, Qlik Sense reporting, BPMN 2.0 process documentation |
 
 ## Verification
 
@@ -98,7 +98,7 @@ CI runs on pull requests and pushes to `main`. Dependency files specify supporte
 
 ## Business Context
 
-The original workflow served regional finance stakeholders across 9 countries by combining SAP sales actuals, MedTech Europe market data, Salesforce-entered forecast updates, and internally maintained sales and market-share forecasts for Qlik Sense reporting. The refreshed visuals supported management goal setting and performance benchmarking. Spreadsheet preparation made reporting slow and dependent on specialist knowledge; the pipeline reduced turnaround time between forecast updates and updated management visuals.
+The original workflow served regional finance stakeholders across 9 countries by combining SAP sales actuals, MedTech Europe market data where available, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, and internally maintained sales and market-share forecasts for Qlik Sense reporting. The refreshed visuals supported management goal setting and performance benchmarking. Spreadsheet preparation made reporting slow and dependent on specialist knowledge; the pipeline reduced turnaround time between forecast updates and updated management visuals.
 
 The original implementation was delivered during previous employment and handed over on departure. This repository is maintained as a portfolio demonstration, not an active production deployment.
 

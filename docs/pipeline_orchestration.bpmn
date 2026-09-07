@@ -37,8 +37,8 @@
       <bpmn:incoming>Flow_Start_to_PreFlight</bpmn:incoming>
       <bpmn:outgoing>Flow_PreFlight_to_Ingestion</bpmn:outgoing>
     </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_DownloadSources" name="2. Ingest SAP, Salesforce, market forecasts">
-      <bpmn:documentation>Stages SAP sales downloads, Salesforce-entered forecast updates, MedTech Europe market reference data, and internally maintained sales and market-share forecasts through the portfolio-safe ingestion boundary.</bpmn:documentation>
+    <bpmn:subProcess id="SubProcess_DownloadSources" name="2. Ingest SAP, Salesforce, market inputs">
+      <bpmn:documentation>Stages SAP sales downloads, Salesforce-entered forecast updates, MedTech Europe market data where available, separate diagnostics/ICM market inputs, and internally maintained sales and market-share forecasts through the portfolio-safe ingestion boundary.</bpmn:documentation>
       <bpmn:incoming>Flow_PreFlight_to_Ingestion</bpmn:incoming>
       <bpmn:outgoing>Flow_Ingestion_to_Transform</bpmn:outgoing>
     </bpmn:subProcess>
