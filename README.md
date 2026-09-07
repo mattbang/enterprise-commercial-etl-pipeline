@@ -1,16 +1,54 @@
-# Enterprise Commercial ETL Pipeline
+# Commercial Forecast-to-Qlik ETL Pipeline
 
 [![CI](https://github.com/mattbang/enterprise-commercial-etl-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mattbang/enterprise-commercial-etl-pipeline/actions/workflows/ci.yml)
 
-**Three reporting views, consistent organization totals, and quality checks that block invalid output.** This Python project turns SAP sales downloads, MedTech Europe market data where available, separate diagnostics/ICM market inputs, Salesforce forecast updates, and internally managed sales and market-share forecasts into Full, Addressable, and Weighted market scenarios for regional finance teams across 9 countries. The production workflow reduced turnaround time between forecast updates and refreshed management visuals used for goal setting and performance benchmarking. A runnable synthetic demo makes the transformations and controls easy to inspect.
+**A production case study in turning scattered commercial forecast updates into management-ready Qlik Sense reporting.**
 
-Built by [Matthew Bangle](https://www.linkedin.com/in/matthew-bangle/), working across business analysis, data quality, reporting automation, and operational handover.
+Built by [Matthew Bangle](https://www.linkedin.com/in/matthew-bangle/), this project automated a regional finance workflow across 9 countries. It combined SAP sales actuals, MedTech Europe market data where available, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, and internally managed sales and market-share forecasts into governed reporting views for goal setting, market-share review, and performance benchmarking.
 
-The public demo uses synthetic inputs and needs no company account or private service. The production case study describes a wider Python-to-Qlik Sense workflow whose private SAP, Salesforce, forecasting, and BI connectors are excluded. See the [scope and limitations](docs/PUBLIC_DEMO_BOUNDARY.md).
+The business impact was the shorter loop between a forecast change and refreshed management visuals: a manual 6-8 hour update cycle became a reported production runtime under 4 minutes. The public repository preserves the architecture, transformation logic, validation controls, and handover approach with synthetic data; private SAP, Salesforce, forecasting, diagnostics/ICM, and Qlik Sense connectors are intentionally excluded.
 
-## The Result
+## Business Application
 
-The sample run preserves **997 organization units** and **5,692 K EUR in synthetic organization revenue** across all three scenarios. Only the market perspective changes.
+Regional finance teams needed a repeatable way to turn changing sales and market-share assumptions into reliable dashboard outputs. The pipeline supported:
+
+- management goal setting and performance benchmarking across 9 countries;
+- faster refreshes after employee-entered Salesforce forecast updates;
+- consistent Full, Addressable, and Weighted market-share views;
+- reconciliation between source extracts, transformed CSVs, and Qlik Sense outputs;
+- warning packages for finance controllers when forecast submissions looked suspicious.
+
+Before automation, the process depended on manual downloads, Excel cleanup, market-source stitching, and hand validation. After automation, the workflow became a governed Python pipeline with explicit success, failure, and unverified states.
+
+## Impact Snapshot
+
+| Area | Manual workflow | Automated production case study |
+| :--- | :--- | :--- |
+| Forecast-to-visual turnaround | 6-8 hours per update cycle | Under 4 minutes reported in production |
+| Business audience | Regional finance and management | Same audience, with faster refreshed visuals |
+| Decision support | Goal setting and benchmarking delayed by manual prep | Updated Qlik Sense visuals closer to forecast changes |
+| Data preparation | Excel cleanup and copy-paste consolidation | Python ingestion, mapping, transformation, and validation |
+| Quality control | Manual spot checks | Blocking checks preserve the last valid dataset |
+| Handover | Specialist-dependent workflow | Documented configuration, BPMN process map, and runbooks |
+
+## Source-to-Reporting Flow
+
+```mermaid
+flowchart LR
+    SAP[SAP sales actuals] --> ETL[Python ETL and validation]
+    MTE[MedTech Europe market data] --> ETL
+    ICM[Separate diagnostics/ICM market inputs] --> ETL
+    SF[Salesforce forecast updates] --> ETL
+    FC[Internal sales and market-share forecasts] --> ETL
+    ETL --> Qlik[Qlik Sense dashboards]
+    Qlik --> MGMT[Management goals and benchmarking]
+```
+
+The public demo uses synthetic inputs and needs no company account or private service. See the [scope and limitations](docs/PUBLIC_DEMO_BOUNDARY.md) for the boundary between the portfolio demo and the production case study.
+
+## Public Demo Result
+
+The sample run preserves **997 organization units** and **5,692 K EUR in synthetic organization revenue** across all three scenarios. Only the market denominator and weighting change.
 
 | Scenario | Rows | Market units | Market revenue (K EUR) | Organization units |
 | :--- | ---: | ---: | ---: | ---: |
@@ -59,24 +97,13 @@ The project connects business definitions to testable reporting logic:
 
 AI coding assistants supported implementation, test-fixture generation, and documentation. Business definitions, design decisions, and review remain the author's responsibility; the public tests provide inspectable evidence of behavior.
 
-## How It Works
-
-```mermaid
-flowchart LR
-    A[Synthetic sources] --> B[Load and map]
-    B --> C[Build three scenarios]
-    C --> D{Quality checks pass?}
-    D -->|Yes| E[Publish CSVs and report]
-    D -->|No| F[Write failure report and exit]
-```
-
 Business rules live in configuration. The transformations change market scope and weighting while keeping organization totals constant. Numeric parsing supports European, US, and Swiss formats; ambiguous values require an explicit interpretation rather than a silent guess.
 
-The production-reference sequence extends this with validated CSV publication, Qlik reload, and reconciliation against fresh downstream evidence. Blocking local failures preserve the last valid dataset. Missing or stale downstream evidence yields `UNVERIFIED` (exit 2); failures exit 1 and verified success exits 0. Downstream verification happens after publication and does not guarantee that a later BI discrepancy was never visible.
+The production-reference sequence extends this with validated CSV publication, Qlik Sense reload, and reconciliation against fresh downstream evidence. Blocking local failures preserve the last valid dataset. Missing or stale downstream evidence yields `UNVERIFIED` (exit 2); failures exit 1 and verified success exits 0. Downstream verification happens after publication and does not guarantee that a later BI discrepancy was never visible.
 
 `orchestrate_update.py` requires unpublished connectors and environment configuration. Use `demo.py` for the supported public workflow. The [editable BPMN model](docs/pipeline_orchestration.bpmn) and [process guide](docs/PORTFOLIO_BPMN_PROCESS_FLOW.md) provide the detailed production architecture.
 
-## Technology
+## Technical Stack
 
 | Area | Tools and purpose |
 | :--- | :--- |
@@ -96,13 +123,11 @@ The public suite covers parser edge cases, mapping rules, schema rejection, cons
 
 CI runs on pull requests and pushes to `main`. Dependency files specify supported minimum versions, not a locked environment; the workflow checks dependency consistency and tests the resolved versions.
 
-## Business Context
+## Portfolio Context
 
-The original workflow served regional finance stakeholders across 9 countries by combining SAP sales actuals, MedTech Europe market data where available, separate diagnostics/ICM market inputs, Salesforce-entered forecast updates, and internally maintained sales and market-share forecasts for Qlik Sense reporting. The refreshed visuals supported management goal setting and performance benchmarking. Spreadsheet preparation made reporting slow and dependent on specialist knowledge; the pipeline reduced turnaround time between forecast updates and updated management visuals.
+The original implementation was delivered during previous employment and handed over on departure. This repository is maintained as a sanitized portfolio demonstration, not an active production deployment.
 
-The original implementation was delivered during previous employment and handed over on departure. This repository is maintained as a portfolio demonstration, not an active production deployment.
-
-The case study reports a manual baseline of roughly 6-8 hours and an automated runtime under four minutes. These are historical operational estimates, not independently reproduced benchmarks of the public demo. See the [executive case study](docs/PORTFOLIO_EXECUTIVE_CASE_STUDY.md) for context.
+The case study reports a manual baseline of roughly 6-8 hours and an automated runtime under four minutes. These are historical operational estimates from the production workflow, not independently reproduced benchmarks of the public demo. See the [executive case study](docs/PORTFOLIO_EXECUTIVE_CASE_STUDY.md) for context.
 
 ## Further Reading
 
