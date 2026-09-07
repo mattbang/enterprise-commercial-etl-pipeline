@@ -1,5 +1,9 @@
-import pandera as pa
-from pandera import Column, DataFrameSchema, Check
+try:
+    import pandera.pandas as pa
+    from pandera.pandas import Check, Column, DataFrameSchema
+except ImportError:
+    import pandera as pa
+    from pandera import Check, Column, DataFrameSchema
 import yaml
 from pathlib import Path
 

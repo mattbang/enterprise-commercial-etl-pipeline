@@ -381,25 +381,26 @@ def generate_export_map(dest: Path) -> Path:
 # =============================================================================
 # MAIN
 # =============================================================================
-def generate_all() -> dict:
+def generate_all(dest: Path | None = None) -> dict:
     """Generate all stress-test source files. Returns dict of {name: Path}."""
-    STRESS_DIR.mkdir(parents=True, exist_ok=True)
+    dest = STRESS_DIR if dest is None else Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
 
     # RedBull sub-directories
-    (STRESS_DIR / "RedBull Static Versions").mkdir(exist_ok=True)
-    (STRESS_DIR / "RedBull Manual Adjustments").mkdir(exist_ok=True)
+    (dest / "RedBull Static Versions").mkdir(exist_ok=True)
+    (dest / "RedBull Manual Adjustments").mkdir(exist_ok=True)
 
     paths = {
-        "crm":              generate_crm(STRESS_DIR),
-        "icm_market":       generate_icm_market(STRESS_DIR),
-        "icm_bio":          generate_icm_bio(STRESS_DIR),
-        "redbull":          generate_redbull(STRESS_DIR),
-        "unconventional":   generate_unconventional(STRESS_DIR),
-        "rb_mapping":       generate_rb_mapping(STRESS_DIR),
-        "export_map":       generate_export_map(STRESS_DIR),
+        "crm":              generate_crm(dest),
+        "icm_market":       generate_icm_market(dest),
+        "icm_bio":          generate_icm_bio(dest),
+        "redbull":          generate_redbull(dest),
+        "unconventional":   generate_unconventional(dest),
+        "rb_mapping":       generate_rb_mapping(dest),
+        "export_map":       generate_export_map(dest),
     }
 
-    print(f"\n  All stress data generated in: {STRESS_DIR}")
+    print(f"\n  All stress data generated in: {dest}")
     return paths
 
 

@@ -175,15 +175,15 @@ def enrich_product_dimensions(df: pd.DataFrame) -> pd.DataFrame:
             r"IPG SINGLE \+ DUAL|IPG SC \& DC", case=False, na=False
         )
     else:
-        mask_ipg_mega = out["PRODUCT_COMBINED"].str.contains("IPG SC \+ Leadless", case=False, na=False)
+        mask_ipg_mega = out["PRODUCT_COMBINED"].str.contains(r"IPG SC \+ Leadless", case=False, na=False)
     out.loc[mask_ipg_mega, "PRODUCT_COMBINED"] = "IPG (All)"
     out.loc[mask_ipg_mega, "PRODUCT_GRAIN"] = "Combined"
     out.loc[mask_ipg_mega, "IS_UNCONVENTIONAL"] = "Mixed"
 
     # --- CRM: CRT ---
-    mask_crtp = out["PRODUCT_COMBINED"].str.contains("CRT-P", case=False, na=False) & ~out["PRODUCT_COMBINED"].str.contains("\+", na=False)
-    mask_crtd = out["PRODUCT_COMBINED"].str.contains("CRT-D", case=False, na=False) & ~out["PRODUCT_COMBINED"].str.contains("\+", na=False)
-    mask_crt_mega = out["PRODUCT_COMBINED"].str.contains("CRT-P \+ CRT-D", case=False, na=False)
+    mask_crtp = out["PRODUCT_COMBINED"].str.contains("CRT-P", case=False, na=False) & ~out["PRODUCT_COMBINED"].str.contains(r"\+", na=False)
+    mask_crtd = out["PRODUCT_COMBINED"].str.contains("CRT-D", case=False, na=False) & ~out["PRODUCT_COMBINED"].str.contains(r"\+", na=False)
+    mask_crt_mega = out["PRODUCT_COMBINED"].str.contains(r"CRT-P \+ CRT-D", case=False, na=False)
 
     out.loc[mask_crtp, "PRODUCT_COMBINED"] = "CRT-P (Full)"
     out.loc[mask_crtd, "PRODUCT_COMBINED"] = "CRT-D (Full)"

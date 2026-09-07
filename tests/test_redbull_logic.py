@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,7 +15,11 @@ class RedBullFrames:
 
 import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from integration.redbull_integration import apply_manual_adjustments
+redbull_integration = pytest.importorskip(
+    "integration.redbull_integration",
+    reason="private integration package is not part of the public portfolio",
+)
+apply_manual_adjustments = redbull_integration.apply_manual_adjustments
 
 def test_apply_adjustments():
     # Setup Data

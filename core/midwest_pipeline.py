@@ -25,9 +25,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Tuple, Optional
-import json
 import yaml
-import pandera as pa
+try:
+    import pandera.pandas as pa
+except ImportError:
+    import pandera as pa
 try:
     from core.schemas import InputSchemaCrm
 except ImportError:
@@ -39,6 +41,37 @@ except ImportError:
 
 import numpy as np
 import pandas as pd
+
+try:
+    from core.utils import (
+        assert_columns,
+        assert_not_empty,
+        canon_product,
+        compute_asp_k,
+        dedupe_columns as dedupe,
+        num_smart,
+        quarter_to_numeric,
+    )
+    from core.publication_control import (
+        BlockingValidationError,
+        PublicationError,
+        publish_validated_frame,
+    )
+except ImportError:
+    from utils import (
+        assert_columns,
+        assert_not_empty,
+        canon_product,
+        compute_asp_k,
+        dedupe_columns as dedupe,
+        num_smart,
+        quarter_to_numeric,
+    )
+    from publication_control import (
+        BlockingValidationError,
+        PublicationError,
+        publish_validated_frame,
+    )
 
 # AI Context Logging for debugging
 try:
@@ -68,15 +101,22 @@ try:
 except Exception:
     _pipe_cfg = {}
 
-@dataclass
+
+def _configured_path(section: str, key: str, fallback: Path) -> Path:
+    """Use a resolved external path, or the portfolio-local fallback."""
+    value = _pipe_cfg.get(section, {}).get(key)
+    return value if isinstance(value, Path) else fallback
+
+
 @dataclass
 class Config:
     mappings_yaml: Path = ROOT_DIR / "config" / "mappings.yaml"
     crm_dl_xlsx: Path = ROOT_DIR / "data" / "in" / "Market Tracker CRM DL.xlsx"
 
-    map_country_export_xlsx: Path = (
-        _pipe_cfg.get("data_sources", {}).get("map_country_export")
-        or ROOT_DIR / "config" / "mappings" / "map_COUNTRY_EXPORT.xlsx"
+    map_country_export_xlsx: Path = _configured_path(
+        "data_sources",
+        "map_country_export",
+        ROOT_DIR / "config" / "mappings" / "map_COUNTRY_EXPORT.xlsx",
     )
 
     rb_map_xlsx: Path = ROOT_DIR / "config" / "mappings" / "map.market.ACCOUNTPOTENTIAL_ASPMSOVERVIEW.xlsx"
@@ -88,18 +128,19 @@ class Config:
     out_final_csv: Path = ROOT_DIR / "data" / "out" / "MarketData_ASP_&_MS_Final_python.csv"
     out_debug_csv: Path = ROOT_DIR / "data" / "out" / "MarketData_ASP_&_MS_Final_python.csv"
 
-    out_final_csv_qvd: Path = (
-        Path(str(_pipe_cfg.get("outputs", {}).get("qvd_target_dir", ""))) / "MarketData_ASP_&_MS_Final_python.csv"
-        if _pipe_cfg.get("outputs", {}).get("qvd_target_dir")
-        else ROOT_DIR / "data" / "out" / "MarketData_ASP_&_MS_Final_python.csv"
-    )
+    out_final_csv_qvd: Path = _configured_path(
+        "outputs",
+        "qvd_target_dir",
+        ROOT_DIR / "data" / "out",
+    ) / "MarketData_ASP_&_MS_Final_python.csv"
     qa_report_json: Path = ROOT_DIR / "data" / "out" / "MarketData_QA_report.json"
 
     # Qlik Reload and QVD diagnostic paths
     qlik_reload_script: Path = ROOT_DIR / "integration" / "Reload_ASP_MS_Overview_Add_RB_2.py"
-    qvd_source_path: Path = (
-        _pipe_cfg.get("data_sources", {}).get("qvd_source_file")
-        or ROOT_DIR / "data" / "out" / "MarketData_ASP_&_MS_Final_QVD_RB.qvd"
+    qvd_source_path: Path = _configured_path(
+        "data_sources",
+        "qvd_source_file",
+        ROOT_DIR / "data" / "out" / "MarketData_ASP_&_MS_Final_QVD_RB.qvd",
     )
     qvd_target_path: Path = ROOT_DIR / "data" / "out" / "MarketData_ASP_&_MS_Final_QVD_RB.qvd"
 
@@ -109,80 +150,8 @@ class Config:
 CFG = Config()
 
 # --------------------------
-# Helpers (shared utilities)
+# Helpers unique to the monolithic compatibility module
 # --------------------------
-
-def num_smart(x):
-    """
-    Parse European or US-formatted numeric values to float safely.
-    Logic:
-    1. If already numeric, return float.
-    2. Remove spaces.
-    3. Detect format: If both '.' and ',' exist, or if the rightmost punctuation
-       is followed by exactly 2 digits (e.g. ,99), we infer the decimal separator.
-    """
-    if pd.isna(x):
-        return np.nan
-    if isinstance(x, (int, float, np.integer, np.floating)):
-        return float(x)
-
-    s = str(x).strip().replace(" ", "")
-    if not s:
-        return np.nan
-
-    # Heuristic for US vs EU formats
-    # US: 1,234.56
-    # EU: 1.234,56
-
-    # If it's a simple number string like "1234.56" or "1234,56"
-    if s.count(".") == 1 and "," not in s:
-        return float(s)
-    if s.count(",") == 1 and "." not in s:
-        return float(s.replace(",", "."))
-
-    # Mixed or Fallback:
-    try:
-        # If mixed: Remove all but the LAST punctuation
-        last_dot = s.rfind(".")
-        last_comma = s.rfind(",")
-
-        if last_dot > last_comma:
-            # Dot is decimal (US Style: 1,234.56)
-            s_clean = s.replace(",", "").replace("'", "").replace(" ", "")
-            return float(s_clean)
-        elif last_comma > last_dot:
-            # Comma is decimal (EU Style: 1.234,56)
-            s_clean = s.replace(".", "").replace("'", "").replace(" ", "").replace(",", ".")
-            return float(s_clean)
-
-        return float(s.replace(",", "."))
-    except (ValueError, TypeError):
-        return np.nan
-
-
-
-def quarter_to_numeric(quarter_str: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:
-    """Convert '21Q4' -> (2021, 4, 214)."""
-    q = str(quarter_str).strip().upper()
-    if len(q) >= 3 and "Q" in q:
-        yy = int(q[:2])
-        qq = int(q.split("Q")[-1])
-        return 2000 + yy, qq, int(f"{yy:02d}{qq}")
-    return np.nan, np.nan, np.nan
-
-def compute_asp_k(units, rev_k):
-    units = units.astype("float64")
-    rev_k = rev_k.astype("float64")
-    return np.where(units > 0, (rev_k * 1000.0) / units, np.nan)
-
-def canon_product(p: str) -> str:
-    """Canonical product string."""
-    if pd.isna(p):
-        return p
-    s = str(p).upper().strip().replace("–", "-").replace("—", "-")
-    while "  " in s:
-        s = s.replace("  ", " ")
-    return s
 
 def combined_flag(product_u: str) -> str | None:
     """Detect combined templates: IPG_SC, IPG_DC, ICD_S, or None."""
@@ -204,32 +173,6 @@ def combined_flag(product_u: str) -> str | None:
 def yq_label(year: int, q: int, latest_year: int, latest_q: int) -> str:
     """Return YTD label or year."""
     return f"{latest_year} Q{latest_q} YTD" if (year == latest_year and q <= latest_q) else str(year)
-
-def dedupe(names):
-    """Ensure unique column names."""
-    seen = {}
-    out = []
-    for name in names:
-        n = name
-        if n in seen:
-            seen[n] += 1
-            n = f"{n}.{seen[n]}"
-        else:
-            seen[n] = 0
-        out.append(n)
-    return out
-
-def assert_columns(df: pd.DataFrame, required_cols: list, context: str):
-    """Raise if columns missing."""
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        found = df.columns.tolist()
-        raise AssertionError(f"{context}: missing {missing}\nFound columns: {found}")
-
-def assert_not_empty(df: pd.DataFrame, context: str):
-    """Raise if empty."""
-    if df.empty:
-        raise AssertionError(f"{context}: empty DataFrame")
 
 def log_residual_combined_rows(df: pd.DataFrame) -> None:
     """Print size of residual combined rows (IPG Single+Dual, CRT-P+CRT-D)."""
@@ -3852,6 +3795,10 @@ def qa_redbull_mapping(
                 "ok": False,
                 "error": "Missing RB mapping column in product_map",
             }
+            qa_report.setdefault("checks", []).append(
+                {"check": "RedBull product mapping integrity", "pass": False}
+            )
+            qa_report["overall_pass"] = False
         return
 
     # --- Ensure PRODUCT_CANON exists in mapping table ---
@@ -3991,6 +3938,14 @@ def qa_redbull_mapping(
                 "n_mismatch_rows": int(mismatch.shape[0]) if "mismatch" in locals() else 0,
             },
         }
+        qa_report.setdefault("checks", []).append(
+            {
+                "check": "RedBull product mapping integrity",
+                "pass": bool(overall_ok),
+            }
+        )
+        if not overall_ok:
+            qa_report["overall_pass"] = False
 
 def debug_icd_25q3_fr_uk(crm_source: pd.DataFrame,
                          final: pd.DataFrame,
@@ -4235,40 +4190,24 @@ if __name__ == "__main__":
         ]
     final = final.drop(columns=[c for c in cols_to_drop if c in final.columns])
 
-    # 🔹 Primary export: into data/out for consumption and RedBull integration
+    # Persist QA evidence first, then publish only a validated candidate.
     try:
-        final.to_csv(
-            CFG.out_final_csv,
-            index=False,
-            sep=";",
-            encoding="utf-8",
-            decimal=",",   # <<< HERE: EU decimal for all floats
+        published_paths = publish_validated_frame(
+            final,
+            qa_report,
+            report_path=CFG.qa_report_json,
+            destinations=[CFG.out_final_csv, CFG.out_final_csv_qvd],
         )
-        print(f"[OK] Exported: {CFG.out_final_csv}")
-    except Exception as e:
-        print(f"[X] ERROR writing CSV: {e}")
+    except BlockingValidationError as exc:
+        print(f"[X] PUBLICATION BLOCKED: {exc}")
+        raise SystemExit(1) from exc
+    except PublicationError as exc:
+        print(f"[X] PUBLICATION FAILED: {exc}")
+        raise SystemExit(1) from exc
 
-    # 🔹 Second export: copy into ASP_MS_DATA for Qlik
-    try:
-        CFG.out_final_csv_qvd.parent.mkdir(parents=True, exist_ok=True)
-        final.to_csv(
-            CFG.out_final_csv_qvd,
-            index=False,
-            sep=";",
-            encoding="utf-8",
-            decimal=",",   # and here
-        )
-        print(f"[OK] Exported copy to: {CFG.out_final_csv_qvd}")
-    except Exception as e:
-        print(f"[X] ERROR writing CSV copy to DATA_QVD: {e}")
-
-    # QA report as before
-    try:
-        with open(CFG.qa_report_json, "w") as f:
-            json.dump(qa_report, f, indent=2)
-        print(f"[OK] QA Report: {CFG.qa_report_json}")  # Pipeline complete soon
-    except Exception as e:
-        print(f"[X] ERROR writing QA report: {e}")
+    print(f"[OK] QA Report: {CFG.qa_report_json}")
+    for published_path in published_paths:
+        print(f"[OK] Published: {published_path}")
 
     # (Legacy Qlik Reload & Diagnostics removed - handled by orchestrator)
 

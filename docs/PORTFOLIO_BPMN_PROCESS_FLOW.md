@@ -9,9 +9,7 @@
 
 ## 🗺️ High-Level Orchestration Flow
 
-![Pipeline Orchestration BPMN Process Map](pipeline_orchestration.png)
-
-The top-level orchestration model links four operational lanes. Each major activity box is an **OMG BPMN 2.0 Collapsed Sub-Process** (marked with `[+]`). Double-clicking or drilling into any sub-process reveals its internal activities.
+The top-level orchestration model links four operational lanes. The Mermaid sequence below reflects the current control order; the editable BPMN source contains the corresponding collapsed sub-processes.
 
 ```mermaid
 sequenceDiagram
@@ -33,28 +31,30 @@ sequenceDiagram
     DL-->>Orch: Staged 4 Raw Feeds in data/in/ (~140s)
     deactivate DL
 
-    %% 3. Transformation
-    Note over Orch: Sub-Process 3: Vectorized ETL & 3-Scenario Disaggregation
-    Orch->>Orch: Export Master CSVs & Sync to Shared Cloud Storage
-
-    %% 4. Cloud BI Reload
-    Orch->>BI: Sub-Process 4: Qlik Cloud BI Orchestration
-    activate BI
-    BI-->>Orch: Cloud Reload Acknowledged
-    Note over Orch: Wait 45s for server-side processing
-    BI-->>Orch: Download Post-Reload Verification CSV
-    deactivate BI
-
-    %% 5. Quality Gates & Circuit Breaker
-    Note over Orch: Sub-Process 5: 17-Layer Data Quality & Governance Gates
-    alt Structural Gate Fails (Data Drop / Checksum Mismatch)
-        Orch-->>Op: 🔴 Trip Circuit Breaker: Send Urgent Failure Alert
-        Note over Orch: Execution Halted (Zero Corrupted Data Published)
-    else All 17 Structural Gates Pass
-        opt Field Plausibility Warnings Detected
-            Orch->>Ctrl: Sub-Process 6: Automated Field Governance & Controller Review Distribution
+    %% 3-4. Candidate transformation and blocking validation
+    Note over Orch: Sub-Process 3: Build candidate and 3 scenarios
+    Orch->>Orch: Sub-Process 4: Run blocking pre-publication checks
+    alt Blocking validation fails
+        Orch-->>Op: FAILED (exit 1); retain last valid dataset
+    else Candidate passes
+        Orch->>Orch: Atomically publish validated CSV
+        Orch->>BI: Sub-Process 5: Reload cloud BI model
+        activate BI
+        BI-->>Orch: Export current-run verification CSV
+        deactivate BI
+        alt Verification missing or stale
+            Orch-->>Op: UNVERIFIED (exit 2)
+        else Fresh verification available
+            Orch->>Orch: Compare BI totals with validated CSV
+            alt Checksum mismatch
+                Orch-->>Op: FAILED (exit 1)
+            else Downstream comparison passes
+                opt Field plausibility warnings detected
+                    Orch->>Ctrl: Sub-Process 6: Generate controller review drafts
+                end
+                Orch-->>Op: SUCCESS (exit 0)
+            end
         end
-        Orch-->>Op: 🟢 Send Executive Summary (Production Dashboard Live)
     end
     deactivate Orch
 ```
@@ -91,37 +91,38 @@ Opening [docs/pipeline_orchestration.bpmn](pipeline_orchestration.bpmn) in **Cam
 * **Trigger:** Raw files staged.
 * **Granular Operations:**
   1. `Task_ETL_Schema`: Validates schemas and column presence using Pandera data contracts.
-  2. `Task_ETL_Numeric`: Applies the custom `_smart_parse()` regex engine to normalize European comma decimals (`1.234,50`), US formats (`1,234.50`), and Swiss apostrophes (`1'234`) to standard IEEE floats.
+  2. `Task_ETL_Numeric`: Applies the shared `num_smart()` parser to normalize European comma decimals (`1.234,50`), US formats (`1,234.50`), and Swiss apostrophes (`1'234`) to standard IEEE floats while rejecting ambiguous single separators without an explicit source policy.
   3. `Task_ETL_Territories`: Resolves non-standard country code aliases (`UK` &rarr; `GB`, `EL` &rarr; `GR`) and remaps 13 export territories into standard parent entities.
   4. `Task_ETL_ClinicalSplits`: Executes clinical therapy splits (single-chamber vs. dual-chamber leadless lines, transseptal access consolidations).
   5. `Task_ETL_Disaggregation`: Dynamically synthesizes the three commercial views: **Full Market**, **Addressable Market**, and **Addressable Weighted Market**.
   6. `Task_ETL_Conservation`: Enforces mathematical conservation law: ensures internal organization volume remains strictly identical across all 3 reporting views.
-  7. `Task_ETL_Export`: Writes master reporting CSVs (`MarketData_Integrated_Flat.csv`) and syncs to shared cloud storage.
-* **Exit Milestone:** Master reporting datasets deployed for cloud consumption.
+  7. `Task_ETL_Stage`: Prepares the candidate dataframe and QA report without replacing the last valid published dataset.
+* **Exit Milestone:** Candidate dataset ready for blocking validation.
 
 ---
 
-### Sub-Process 4: Qlik Cloud BI Orchestration & Verification Extraction
-* **Trigger:** Master CSV deployed to cloud storage.
-* **Granular Operations:**
-  1. `Task_BI_Trigger`: Authenticates and dispatches API/DOM reload commands to Qlik Cloud Analytics Engine.
-  2. `Timer_BI_Wait`: Enforces a 45-second stabilization window allowing server-side calculation and data model indexing.
-  3. `Task_BI_PollStatus`: Asserts server reload status returned `SUCCESS`; captures any memory exhaustion or indexing warnings.
-  4. `Task_BI_ExportVerification`: Triggers an automated export of the live Qlik summary sheet (`MarketData_Add_Final_Qlik_Verified.csv`) to execute post-reload validation.
-* **Exit Milestone:** Fresh cloud verification dataset downloaded to local workspace.
-
----
-
-### Sub-Process 5: 17-Layer Data Quality & Governance Gates
-* **Trigger:** Verification sheet staged locally.
+### Sub-Process 4: Blocking Pre-Publication Quality Gates
+* **Trigger:** Candidate dataframe and QA report prepared.
 * **Granular Operations:**
   1. `Task_QA_Tier1`: Verifies output file existence, timestamps, and non-zero byte size (Check 1).
   2. `Task_QA_Tier2`: Validates null-rate caps on critical dimensions and checks minimum row sanity thresholds (Checks 2, 8).
   3. `Task_QA_Tier3_Recon`: Asserts input units equal output units across all transformations and guarantees 0 lost regions (Checks 3, 4, 5, 6).
-  4. `Task_QA_Tier3_Checksum`: Compares live Qlik Cloud aggregate units and Net Revenue against Python master CSV ($Tolerance < 1.00\text{ EUR}$) (Check 9).
-  5. `Task_QA_Tier4`: Scans for 10x magnitude spike bugs, unapproved negative values ($< -100$), and velocity anomalies (Checks 7, 10, 14, 15, 17).
-  6. `Task_QA_Tier5`: Applies human-error heuristics to detect copy-paste duplicates, round numbers (exact 100s), and unchanged forecast baselines (Checks 11, 12, 13, 16).
-* **Exit Milestone:** Validation audit completed; routes to Circuit Breaker or Production Publication.
+  4. `Task_QA_Tier4`: Scans for magnitude inflation and unapproved negative values (Checks 7 and 10).
+  5. `Task_QA_Tier5`: Records warning-level forecast heuristics without converting them into structural failures (Checks 11 through 17 as applicable).
+  6. `Task_QA_Publish`: Writes the passing QA report and atomically replaces the published CSV destinations.
+* **Exit Milestone:** Failed candidates exit `1`; passing candidates are published for cloud reload.
+
+---
+
+### Sub-Process 5: Qlik Cloud BI Orchestration & Verification Extraction
+* **Trigger:** Validated CSV published to shared storage.
+* **Granular Operations:**
+  1. `Task_BI_Trigger`: Authenticates and dispatches the Qlik Cloud reload.
+  2. `Timer_BI_Wait`: Allows server-side calculation and data-model indexing.
+  3. `Task_BI_PollStatus`: Requires a successful reload result.
+  4. `Task_BI_ExportVerification`: Accepts only a verification export created during the current run.
+  5. `Task_BI_Checksum`: Compares cloud units and Net Revenue against the validated master CSV (Check 9).
+* **Exit Milestone:** Match is `SUCCESS`/`0`; checksum failure is `FAILED`/`1`; missing or stale evidence is `UNVERIFIED`/`2`.
 
 ---
 

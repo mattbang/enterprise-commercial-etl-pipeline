@@ -41,6 +41,32 @@ def get_project_root() -> Path:
 # ---------------------------------------------------------------------------
 _ENV_VAR_RE = re.compile(r"\$\{(\w+)\}")
 _YEAR_RE = re.compile(r"\{YEAR\}")
+_WINDOWS_ABSOLUTE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+# Only these YAML values represent filesystem locations. Other strings such as
+# app IDs, email addresses, selectors, and environment names must remain text.
+_PATH_FIELDS = frozenset(
+    {
+        ("storage", "midwest_root"),
+        ("storage", "onedrive_data_qvd"),
+        ("storage", "onedrive_assets"),
+        ("data_sources", "crm"),
+        ("data_sources", "icm_market"),
+        ("data_sources", "icm_bio"),
+        ("data_sources", "unconventional_market"),
+        ("data_sources", "redbull_live"),
+        ("data_sources", "redbull_static_dir"),
+        ("data_sources", "redbull_adjustments_dir"),
+        ("data_sources", "map_country_export"),
+        ("data_sources", "rb_mapping_xlsx"),
+        ("data_sources", "communal_mapping_table"),
+        ("data_sources", "qvd_source_file"),
+        ("outputs", "final_csv"),
+        ("outputs", "qa_report_json"),
+        ("outputs", "qvd_target_dir"),
+        ("selenium", "chrome_profile_path"),
+    }
+)
 
 
 def _expand_placeholders(value: str) -> str:
@@ -60,22 +86,27 @@ def _expand_placeholders(value: str) -> str:
     return result
 
 
-def _resolve_value(value: Any) -> Any:
-    """Recursively walk a YAML tree and expand env-var placeholders."""
+def _resolve_value(value: Any, key_path: tuple[str, ...] = ()) -> Any:
+    """Expand placeholders and resolve only explicitly declared path fields."""
+    if isinstance(value, dict):
+        return {
+            key: _resolve_value(item, key_path + (str(key),))
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_resolve_value(item, key_path) for item in value]
     if isinstance(value, str):
         expanded = _expand_placeholders(value)
-        # If it still contains an un-expanded placeholder, return as string
-        if _ENV_VAR_RE.search(expanded):
+        if key_path not in _PATH_FIELDS or _ENV_VAR_RE.search(expanded):
             return expanded
-        # Resolve relative paths against PROJECT_ROOT
-        p = Path(expanded)
-        if not p.is_absolute():
-            p = PROJECT_ROOT / p
-        return p
-    if isinstance(value, dict):
-        return {k: _resolve_value(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_resolve_value(item) for item in value]
+
+        path = Path(expanded)
+        is_external_absolute = (
+            path.is_absolute()
+            or bool(_WINDOWS_ABSOLUTE_RE.match(expanded))
+            or expanded.startswith("\\\\")
+        )
+        return path if is_external_absolute else PROJECT_ROOT / path
     return value
 
 
@@ -109,18 +140,33 @@ def resolve_config(*, force_reload: bool = False) -> Dict[str, Any]:
     return _cached_config
 
 
-def get_storage_path(key: str) -> Path:
-    """Convenience: return a resolved path from the ``storage`` section.
+def get_config_path(
+    section: str,
+    key: str,
+    *,
+    config: Dict[str, Any] | None = None,
+) -> Path:
+    """Return one declared path field and reject unresolved placeholders.
 
-    Raises *KeyError* if the key does not exist and *ValueError* if the
+    Raises *KeyError* if the field does not exist and *ValueError* if the
     path still contains an un-expanded ``${…}`` placeholder (meaning the
     required environment variable is not set).
     """
-    cfg = resolve_config()
-    value = cfg["storage"][key]
+    if (section, key) not in _PATH_FIELDS:
+        raise KeyError(f"{section}.{key} is not a declared path field")
+
+    cfg = resolve_config() if config is None else config
+    value = cfg[section][key]
     if isinstance(value, str) and _ENV_VAR_RE.search(value):
         raise ValueError(
-            f"storage.{key} contains an unresolved placeholder: {value!r}.  "
+            f"{section}.{key} contains an unresolved placeholder: {value!r}.  "
             f"Set the corresponding environment variable before running."
         )
+    if not isinstance(value, (str, Path)):
+        raise TypeError(f"{section}.{key} is not path-like: {value!r}")
     return Path(value)
+
+
+def get_storage_path(key: str) -> Path:
+    """Convenience wrapper for a resolved path in the ``storage`` section."""
+    return get_config_path("storage", key)

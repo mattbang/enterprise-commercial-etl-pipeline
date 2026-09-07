@@ -25,6 +25,7 @@ chrome_automation_profile/
 data/in/
 data/out/
 /demo_output/
+/data/test_sandbox/stress/
 !data/sample/
 !data/sample/*.xlsx
 !data/sample/*.csv
@@ -34,6 +35,7 @@ data/out/
 orchestrator.log
 ~$*.xlsx
 ~$*.docx
+*.bak
 ai_context.jsonl
 
 # Internal Obsidian Vault & Agent configurations (Keep portfolio docs only)

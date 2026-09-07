@@ -25,8 +25,17 @@ from integration.helpers.validation_helpers import validate_all
 from integration.helpers.SendEmail import send_email
 from integration.helpers.forecast_quality import build_unconventional_qa_report, generate_controller_drafts
 import shutil
-import yaml
 from core.error_handling import PipelineErrorHandler
+from core.path_resolver import get_config_path, resolve_config
+from core.publication_control import (
+    BlockingValidationError,
+    RunStatus,
+    exit_code_for,
+    load_fresh_validation_report,
+    missing_or_stale_files,
+    terminal_status,
+    validation_result_failures,
+)
 
 
 # AI Context Logging
@@ -58,35 +67,27 @@ logging.getLogger().addHandler(error_handler)
 log = logging.getLogger("Orchestrator")
 
 def load_config():
-    """Load pipeline configuration from YAML."""
-    config_path = Path(__file__).resolve().parent / "config" / "pipeline_config.yaml"
-    if not config_path.exists():
-        log.error(f"CRITICAL: Config file not found at {config_path}. Pipeline cannot proceed.")
-        sys.exit(1)
-
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    """Load configuration through the central placeholder/path resolver."""
+    return resolve_config(force_reload=True)
 
 import argparse
 
-def main():
+def main(argv=None):
     log.info("Orchestrator process started (PID: %d)", os.getpid())
 
     parser = argparse.ArgumentParser(description="Orchestrate Qlik Datasets Update")
     parser.add_argument("--dry-run", action="store_true", help="Simulate execution without downloading, reloading, or emailing.")
     parser.add_argument("--skip-downloads", action="store_true", help="Skip the download step but run pipeline, reload, and validation.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     dry_run = args.dry_run
     skip_downloads = args.skip_downloads
 
     try:
         config = load_config()
-    except SystemExit:
-        raise
     except Exception as e:
         log.critical("FATAL: Failed during startup/config load: %s", e, exc_info=True)
-        sys.exit(1)
+        return exit_code_for(RunStatus.FAILED)
 
     try:
         log.info("="*60)
@@ -102,10 +103,15 @@ def main():
 
         summary_report = []
         errors = []
+        verification_complete = True
 
         # Paths for verification files (from YAML)
-        src_verification_dir = Path(config["outputs"]["qvd_target_dir"])
         dest_verification_dir = current_dir / "data" / "out"
+        src_verification_dir = (
+            dest_verification_dir
+            if dry_run
+            else get_config_path("outputs", "qvd_target_dir", config=config)
+        )
 
         # --- STEP 1: DOWNLOADS & PIPELINE ---
         log.info("\n>>> STEP 1: DOWNLOADS & DATA PIPELINE")
@@ -120,16 +126,62 @@ def main():
                 log.error(msg)
                 summary_report.append(msg)
                 errors.append("Pipeline execution failed. Check orchestrator.log for details.")
-                send_summary_email(summary_report, errors, dry_run=dry_run, config=config)
-                sys.exit(1)
+                send_summary_email(
+                    summary_report,
+                    errors,
+                    dry_run=dry_run,
+                    config=config,
+                    status=RunStatus.FAILED,
+                )
+                return exit_code_for(RunStatus.FAILED)
         except Exception as e:
             msg = f"❌ Downloads & Pipeline: EXCEPTION ({e})"
             log.error(msg, exc_info=True)
             errors.append(msg)
-            send_summary_email(summary_report, errors, dry_run=dry_run, config=config)
-            sys.exit(1)
+            send_summary_email(
+                summary_report,
+                errors,
+                dry_run=dry_run,
+                config=config,
+                status=RunStatus.FAILED,
+            )
+            return exit_code_for(RunStatus.FAILED)
 
         log.info(f"Step 1 finished in {time.time()-t0:.1f}s")
+
+        # --- STEP 1.5: BLOCKING PRE-PUBLICATION READINESS ---
+        log.info("\n>>> STEP 1.5: BLOCKING PRE-PUBLICATION VALIDATION")
+        data_in_dir = current_dir / "data" / "in"
+        data_out_dir = current_dir / "data" / "out"
+        candidate_dataset = data_out_dir / "MarketData_ASP_&_MS_Final_python.csv"
+        qa_report_path = data_out_dir / "MarketData_QA_report.json"
+
+        try:
+            if dry_run:
+                log.info("[DRY RUN] Pre-publication artifact checks simulated.")
+            else:
+                load_fresh_validation_report(qa_report_path, not_before=t0)
+                rejected = missing_or_stale_files([candidate_dataset], not_before=t0)
+                if rejected:
+                    raise BlockingValidationError(
+                        "Candidate dataset is missing, empty, or stale: "
+                        + ", ".join(str(path) for path in rejected)
+                    )
+            msg = "Pre-publication validation: PASSED"
+            log.info(msg)
+            summary_report.append(msg)
+        except Exception as e:
+            msg = f"Pre-publication validation: FAILED ({e})"
+            log.error(msg, exc_info=True)
+            errors.append(msg)
+            send_summary_email(
+                summary_report,
+                errors,
+                dry_run=dry_run,
+                config=config,
+                status=RunStatus.FAILED,
+            )
+            return exit_code_for(RunStatus.FAILED)
 
         # --- STEP 2: RELOAD QLIK APPS ---
         log.info("\n>>> STEP 2: RELOAD QLIK APPS")
@@ -151,6 +203,16 @@ def main():
             errors.append(msg)
 
         log.info(f"Step 2 finished in {time.time()-t0:.1f}s")
+
+        if errors:
+            send_summary_email(
+                summary_report,
+                errors,
+                dry_run=dry_run,
+                config=config,
+                status=RunStatus.FAILED,
+            )
+            return exit_code_for(RunStatus.FAILED)
 
         # Wait for reloads to process on server BEFORE collecting verification files
         # The reload_app function just TRIGGERS it. It doesn't wait for completion.
@@ -215,33 +277,52 @@ def main():
                     csv_file = src_verification_dir / fname
                     if fname not in copied_files:
                         if csv_file.exists():
-                            # File exists but wasn't fresh — copy anyway as best available
                             file_age = time.time() - csv_file.stat().st_mtime
-                            log.warning(f"[WARN] File {fname} not refreshed this run (Age: {file_age/60:.1f} min)")
-                            shutil.copy2(csv_file, dest_verification_dir / fname)
+                            log.warning(
+                                f"[UNVERIFIED] File {fname} was not refreshed this run "
+                                f"(Age: {file_age/60:.1f} min); stale evidence was not copied."
+                            )
                             count_missing += 1
                         else:
-                            log.warning(f"[WARN] Expected file {fname} not found in source directory")
+                            log.warning(f"[UNVERIFIED] Expected file {fname} was not found")
                             count_missing += 1
 
-                msg = f"✅ Verification File Collection: {count_fresh} Fresh, {count_missing} Missing"
+                verification_complete = count_missing == 0
+                state = "SUCCESS" if verification_complete else "UNVERIFIED"
+                msg = (
+                    f"Verification File Collection: {state} "
+                    f"({count_fresh} fresh, {count_missing} missing or stale)"
+                )
                 log.info(msg)
                 summary_report.append(msg)
 
         except Exception as e:
-            msg = f"❌ Verification File Collection: EXCEPTION ({e})"
-            log.error(msg, exc_info=True)
-            errors.append(msg)
+            verification_complete = False
+            msg = f"Verification File Collection: UNVERIFIED ({e})"
+            log.warning(msg, exc_info=True)
+            summary_report.append(msg)
+
+        if not verification_complete:
+            status = RunStatus.UNVERIFIED
+            summary_report.append(
+                "Run status: UNVERIFIED - dashboard freshness could not be proven."
+            )
+            send_summary_email(
+                summary_report,
+                errors,
+                dry_run=dry_run,
+                config=config,
+                status=status,
+            )
+            log.warning("ORCHESTRATION UNVERIFIED")
+            return exit_code_for(status)
 
         # --- STEP 3: VALIDATION ---
         log.info("\n>>> STEP 3: VALIDATION CHECKS")
         t0 = time.time()
-        # Define data dirs
-        data_in_dir = current_dir / "data" / "in"
-        data_out_dir = current_dir / "data" / "out"
-
         try:
             val_results = validate_all(str(data_in_dir), str(data_out_dir), dry_run=dry_run, config=config)
+            errors.extend(validation_result_failures(val_results))
             for check, res in val_results.items():
                 status = "PASSED" if res["pass"] else "FAILED"
                 icon = "✅" if res["pass"] else "❌"
@@ -250,7 +331,6 @@ def main():
                 log.info(msg)
                 summary_report.append(msg)
                 if not res["pass"]:
-                    errors.append(f"{check} failed: {res.get('msg')}")
                     # Append detail logs to summary if failed
                     summary_report.append(f"<pre>{res.get('msg')}</pre>")
 
@@ -294,8 +374,23 @@ def main():
         except Exception as e:
             log.warning("Forecast quality reports failed: %s", e)
 
-        # --- STEP 4: NOTIFICATION ---
-        send_summary_email(summary_report, errors, dry_run=dry_run, config=config, attachments=qa_attachments)
+        # --- STEP 4: TERMINAL STATUS & NOTIFICATION ---
+        status = terminal_status(
+            failures=errors,
+            verification_complete=verification_complete,
+        )
+        summary_report.append(f"Run status: {status.value}")
+        notification_sent = send_summary_email(
+            summary_report,
+            errors,
+            dry_run=dry_run,
+            config=config,
+            attachments=qa_attachments,
+            status=status,
+        )
+        if not notification_sent and not dry_run:
+            errors.append("Summary notification could not be delivered.")
+            status = RunStatus.FAILED
         # --- AI CONTEXT SUMMARY ---
         ai_summary = ai_log_summary()
         if ai_summary.get("total_events", 0) > 0:
@@ -309,26 +404,40 @@ def main():
                 log.warning(f"Zero unit cases: {ai_summary['zero_units_cases']}")
 
         log.info("="*60)
-        log.info("ORCHESTRATION COMPLETE")
+        log.info("ORCHESTRATION %s", status.value)
         log.info("="*60)
+        return exit_code_for(status)
     except SystemExit:
         raise
     except Exception as e:
         log.critical("FATAL: Unhandled exception in orchestration: %s", e, exc_info=True)
-        sys.exit(1)
+        return exit_code_for(RunStatus.FAILED)
     finally:
         logging.shutdown()
 
-def send_summary_email(report_lines, error_list, dry_run=False, config=None, attachments=None):
+def send_summary_email(
+    report_lines,
+    error_list,
+    dry_run=False,
+    config=None,
+    attachments=None,
+    status=None,
+):
     """Sends the final status email with optional QA report attachments."""
 
     # Placeholder recipient used only when no private config is provided.
     recipient = config["email"]["recipient"] if config else "alerts@example.invalid"
 
-    if error_list or error_handler.has_errors():
+    status = status or terminal_status(failures=error_list)
+
+    if status is RunStatus.FAILED:
         subject = "❌ [FAILED] Qlik Update Orchestration"
         color = "red"
         status_text = "The update process encountered errors."
+    elif status is RunStatus.UNVERIFIED:
+        subject = "⚠️ [UNVERIFIED] Qlik Update Orchestration"
+        color = "orange"
+        status_text = "The update ran, but current dashboard evidence was not available."
     elif error_handler.has_warnings():
         subject = "⚠️ [WARNING] Qlik Update Orchestration (Issues Found)"
         color = "orange"
@@ -363,12 +472,14 @@ def send_summary_email(report_lines, error_list, dry_run=False, config=None, att
     try:
         send_email(subject, body_html, recipient, dry_run=dry_run, attachments=attachments)
         log.info(f"Sent summary email to {recipient}")
+        return True
     except Exception as e:
         log.error(f"Failed to send email: {e}")
+        return False
 
 if __name__ == "__main__":
     try:
-        main()
+        raise SystemExit(main())
     except Exception:
         logging.exception("FATAL: Orchestrator crashed")
-        sys.exit(1)
+        raise SystemExit(exit_code_for(RunStatus.FAILED))

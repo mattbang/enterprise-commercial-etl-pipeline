@@ -74,7 +74,7 @@
         <bpmn:outgoing>Flow_ETL_2</bpmn:outgoing>
       </bpmn:serviceTask>
       <bpmn:serviceTask id="Task_ETL_Numeric" name="Coerce Heterogeneous European &#38; US Numbers">
-        <bpmn:documentation>Executes _smart_parse() regex to convert German comma decimals (1.234,50) and Swiss apostrophes (1'234) into IEEE floats.</bpmn:documentation>
+        <bpmn:documentation>Executes the shared num_smart() parser to convert German comma decimals (1.234,50), US mixed separators, and Swiss apostrophes (1'234) into IEEE floats. Ambiguous single separators require an explicit source policy.</bpmn:documentation>
         <bpmn:incoming>Flow_ETL_2</bpmn:incoming>
         <bpmn:outgoing>Flow_ETL_3</bpmn:outgoing>
       </bpmn:serviceTask>
@@ -98,12 +98,12 @@
         <bpmn:incoming>Flow_ETL_6</bpmn:incoming>
         <bpmn:outgoing>Flow_ETL_7</bpmn:outgoing>
       </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_Export" name="Export Master CSV &#38; Synchronize to Shared Storage">
-        <bpmn:documentation>Writes MarketData_Integrated_Flat.csv and syncs to shared cloud volumes for BI ingestion.</bpmn:documentation>
+      <bpmn:serviceTask id="Task_ETL_Export" name="Stage Candidate Dataset &#38; QA Report">
+        <bpmn:documentation>Prepares candidate output without replacing the last validated published dataset.</bpmn:documentation>
         <bpmn:incoming>Flow_ETL_7</bpmn:incoming>
         <bpmn:outgoing>Flow_ETL_8</bpmn:outgoing>
       </bpmn:serviceTask>
-      <bpmn:endEvent id="End_ETL" name="Master Datasets Deployed">
+      <bpmn:endEvent id="End_ETL" name="Candidate Ready for Blocking Validation">
         <bpmn:incoming>Flow_ETL_8</bpmn:incoming>
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="Flow_ETL_1" sourceRef="Start_ETL" targetRef="Task_ETL_Schema" />
@@ -115,9 +115,9 @@
       <bpmn:sequenceFlow id="Flow_ETL_7" sourceRef="Task_ETL_Conservation" targetRef="Task_ETL_Export" />
       <bpmn:sequenceFlow id="Flow_ETL_8" sourceRef="Task_ETL_Export" targetRef="End_ETL" />
     </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_Run17Checks" name="5. 17-Layer Data Quality &#38; Governance Gates">
-      <bpmn:documentation>Evaluates the 5-tier defense-in-depth safety net. Halts execution if structural conservation or checksum errors occur.</bpmn:documentation>
-      <bpmn:incoming>Flow_Reload_to_QA</bpmn:incoming>
+    <bpmn:subProcess id="SubProcess_Run17Checks" name="4. Blocking Pre-Publication Quality Gates">
+      <bpmn:documentation>Evaluates structural and conservation checks before atomically replacing published datasets.</bpmn:documentation>
+      <bpmn:incoming>Flow_ETL_to_Reload</bpmn:incoming>
       <bpmn:outgoing>Flow_QA_to_Gateway</bpmn:outgoing>
       <bpmn:startEvent id="Start_QA" name="Start Quality Gates">
         <bpmn:outgoing>Flow_QA_1</bpmn:outgoing>
@@ -137,8 +137,8 @@
         <bpmn:incoming>Flow_QA_3</bpmn:incoming>
         <bpmn:outgoing>Flow_QA_4</bpmn:outgoing>
       </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_QA_Tier3_Checksum" name="Tier 3: End-to-End Cloud BI Checksum Comparison (Check 9)">
-        <bpmn:documentation>Compares Qlik Cloud aggregate units and revenue against Python CSV (diff &lt; 1.00 EUR).</bpmn:documentation>
+      <bpmn:serviceTask id="Task_QA_Tier3_Checksum" name="Publication Readiness: Passing QA Report &#38; Fresh Candidate">
+        <bpmn:documentation>Requires all blocking checks to pass before atomically publishing the candidate CSV.</bpmn:documentation>
         <bpmn:incoming>Flow_QA_4</bpmn:incoming>
         <bpmn:outgoing>Flow_QA_5</bpmn:outgoing>
       </bpmn:serviceTask>
@@ -168,20 +168,20 @@
       <bpmn:outgoing>Flow_Gate_Pass</bpmn:outgoing>
       <bpmn:outgoing>Flow_Gate_Fail</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:sendTask id="Task_CircuitBreaker" name="Trip Circuit Breaker &#38; Dispatch Urgent Error Alert">
-      <bpmn:documentation>Halts process; alerts operations lead with diagnostic traceback; blocks publishing corrupted data.</bpmn:documentation>
+    <bpmn:sendTask id="Task_CircuitBreaker" name="Block Publication &#38; Dispatch Failure Alert">
+      <bpmn:documentation>Returns exit code 1, preserves the prior validated dataset, and reports failed checks.</bpmn:documentation>
       <bpmn:incoming>Flow_Gate_Fail</bpmn:incoming>
       <bpmn:outgoing>Flow_Fail_to_End</bpmn:outgoing>
     </bpmn:sendTask>
     <bpmn:sequenceFlow id="Flow_Start_to_PF" sourceRef="StartEvent_WeeklyTrigger" targetRef="SubProcess_PreFlight" />
     <bpmn:sequenceFlow id="Flow_PF_to_DL" sourceRef="SubProcess_PreFlight" targetRef="SubProcess_DownloadSources" />
     <bpmn:sequenceFlow id="Flow_DL_to_ETL" sourceRef="SubProcess_DownloadSources" targetRef="SubProcess_ETLTransform" />
-    <bpmn:sequenceFlow id="Flow_ETL_to_Reload" sourceRef="SubProcess_ETLTransform" targetRef="SubProcess_CloudBIReload" />
-    <bpmn:sequenceFlow id="Flow_Reload_to_QA" sourceRef="SubProcess_CloudBIReload" targetRef="SubProcess_Run17Checks" />
+    <bpmn:sequenceFlow id="Flow_ETL_to_Reload" sourceRef="SubProcess_ETLTransform" targetRef="SubProcess_Run17Checks" />
+    <bpmn:sequenceFlow id="Flow_Reload_to_QA" sourceRef="SubProcess_CloudBIReload" targetRef="Gateway_SoftAnomalies" />
     <bpmn:sequenceFlow id="Flow_QA_to_Gateway" sourceRef="SubProcess_Run17Checks" targetRef="Gateway_QualityPass" />
     <bpmn:sequenceFlow id="Flow_Gate_Fail" name="No (Fatal Discrepancy)" sourceRef="Gateway_QualityPass" targetRef="Task_CircuitBreaker" />
     <bpmn:sequenceFlow id="Flow_Fail_to_End" sourceRef="Task_CircuitBreaker" targetRef="EndEvent_Failed" />
-    <bpmn:sequenceFlow id="Flow_Gate_Pass" name="Yes (All Passed)" sourceRef="Gateway_QualityPass" targetRef="Gateway_SoftAnomalies" />
+    <bpmn:sequenceFlow id="Flow_Gate_Pass" name="Yes (Publish Candidate)" sourceRef="Gateway_QualityPass" targetRef="SubProcess_CloudBIReload" />
     <bpmn:sequenceFlow id="Flow_Anomalies_Yes" name="Yes" sourceRef="Gateway_SoftAnomalies" targetRef="SubProcess_GovernanceAlerting" />
     <bpmn:sequenceFlow id="Flow_Gov_to_End" sourceRef="SubProcess_GovernanceAlerting" targetRef="EndEvent_CompletedWithActions" />
     <bpmn:sequenceFlow id="Flow_Anomalies_No" name="No" sourceRef="Gateway_SoftAnomalies" targetRef="Task_SendSuccessEmail" />
@@ -228,9 +228,9 @@
       <bpmn:sequenceFlow id="Flow_DL_5" sourceRef="Task_DL_Forecasts" targetRef="Task_DL_VerifyFiles" />
       <bpmn:sequenceFlow id="Flow_DL_6" sourceRef="Task_DL_VerifyFiles" targetRef="End_DL" />
     </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_CloudBIReload" name="4. Qlik Cloud BI Orchestration &#38; Verification Extraction">
-      <bpmn:documentation>Two-way closed-loop handshake: triggers cloud reload, awaits stabilization, and downloads post-reload verification dataset.</bpmn:documentation>
-      <bpmn:incoming>Flow_ETL_to_Reload</bpmn:incoming>
+    <bpmn:subProcess id="SubProcess_CloudBIReload" name="5. Cloud BI Reload &#38; Current-Run Verification">
+      <bpmn:documentation>Reloads the validated candidate, rejects stale verification evidence, and returns SUCCESS, FAILED, or UNVERIFIED.</bpmn:documentation>
+      <bpmn:incoming>Flow_Gate_Pass</bpmn:incoming>
       <bpmn:outgoing>Flow_Reload_to_QA</bpmn:outgoing>
       <bpmn:startEvent id="Start_BI" name="Start BI Reload">
         <bpmn:outgoing>Flow_BI_1</bpmn:outgoing>
@@ -252,12 +252,12 @@
         <bpmn:incoming>Flow_BI_3</bpmn:incoming>
         <bpmn:outgoing>Flow_BI_4</bpmn:outgoing>
       </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_BI_ExportVerification" name="Export Summary Verification Dataset from BI Model">
-        <bpmn:documentation>Downloads MarketData_Add_Final_Qlik_Verified.csv for end-to-end reconciliation.</bpmn:documentation>
+      <bpmn:serviceTask id="Task_BI_ExportVerification" name="Export Fresh Verification &#38; Reconcile Totals">
+        <bpmn:documentation>Accepts only current-run evidence and compares BI totals against the validated Python CSV.</bpmn:documentation>
         <bpmn:incoming>Flow_BI_4</bpmn:incoming>
         <bpmn:outgoing>Flow_BI_5</bpmn:outgoing>
       </bpmn:serviceTask>
-      <bpmn:endEvent id="End_BI" name="Verification Dataset Staged">
+      <bpmn:endEvent id="End_BI" name="Downstream Verification Passed">
         <bpmn:incoming>Flow_BI_5</bpmn:incoming>
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="Flow_BI_1" sourceRef="Start_BI" targetRef="Task_BI_Trigger" />
@@ -266,12 +266,12 @@
       <bpmn:sequenceFlow id="Flow_BI_4" sourceRef="Task_BI_PollStatus" targetRef="Task_BI_ExportVerification" />
       <bpmn:sequenceFlow id="Flow_BI_5" sourceRef="Task_BI_ExportVerification" targetRef="End_BI" />
     </bpmn:subProcess>
-    <bpmn:endEvent id="EndEvent_Failed" name="Pipeline Aborted (Zero Dirty Data Published)">
+    <bpmn:endEvent id="EndEvent_Failed" name="Pipeline Failed (Prior Valid Dataset Retained)">
       <bpmn:incoming>Flow_Fail_to_End</bpmn:incoming>
       <bpmn:errorEventDefinition id="ErrorDef_Main" />
     </bpmn:endEvent>
     <bpmn:exclusiveGateway id="Gateway_SoftAnomalies" name="Field Plausibility Warnings Detected?">
-      <bpmn:incoming>Flow_Gate_Pass</bpmn:incoming>
+      <bpmn:incoming>Flow_Reload_to_QA</bpmn:incoming>
       <bpmn:outgoing>Flow_Anomalies_Yes</bpmn:outgoing>
       <bpmn:outgoing>Flow_Anomalies_No</bpmn:outgoing>
     </bpmn:exclusiveGateway>
@@ -389,7 +389,7 @@
         <dc:Bounds x="480" y="515" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_CloudBIReload_di" bpmnElement="SubProcess_CloudBIReload" isExpanded="false">
-        <dc:Bounds x="880" y="680" width="150" height="80" />
+        <dc:Bounds x="1380" y="680" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_GovernanceAlerting_di" bpmnElement="SubProcess_GovernanceAlerting" isExpanded="false">
         <dc:Bounds x="1560" y="100" width="150" height="80" />
@@ -413,15 +413,11 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_ETL_to_Reload_di" bpmnElement="Flow_ETL_to_Reload">
         <di:waypoint x="830" y="310" />
-        <di:waypoint x="855" y="310" />
-        <di:waypoint x="855" y="720" />
-        <di:waypoint x="880" y="720" />
+        <di:waypoint x="1080" y="310" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Reload_to_QA_di" bpmnElement="Flow_Reload_to_QA">
-        <di:waypoint x="1030" y="720" />
-        <di:waypoint x="1055" y="720" />
-        <di:waypoint x="1055" y="310" />
-        <di:waypoint x="1080" y="310" />
+        <di:waypoint x="1455" y="680" />
+        <di:waypoint x="1450" y="335" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_QA_to_Gateway_di" bpmnElement="Flow_QA_to_Gateway">
         <di:waypoint x="1230" y="310" />
@@ -439,8 +435,9 @@
         <di:waypoint x="1452" y="140" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Gate_Pass_di" bpmnElement="Flow_Gate_Pass">
-        <di:waypoint x="1335" y="310" />
-        <di:waypoint x="1425" y="310" />
+        <di:waypoint x="1310" y="335" />
+        <di:waypoint x="1310" y="720" />
+        <di:waypoint x="1380" y="720" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="1333" y="292" width="81" height="14" />
         </bpmndi:BPMNLabel>

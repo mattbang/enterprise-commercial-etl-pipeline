@@ -1,6 +1,13 @@
+"""Optional smoke check for the private downstream validation integration."""
 
 import os
-from integration.helpers.validation_helpers import validate_all
+import pytest
+
+validation_helpers = pytest.importorskip(
+    "integration.helpers.validation_helpers",
+    reason="private integration package is not part of the public portfolio",
+)
+validate_all = validation_helpers.validate_all
 
 def main():
     root = os.getcwd()

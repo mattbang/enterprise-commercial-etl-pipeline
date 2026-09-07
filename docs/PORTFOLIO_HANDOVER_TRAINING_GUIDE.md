@@ -48,7 +48,7 @@ python orchestrate_update.py
 
 ## ✅ Section 2: Verification Protocol (How to Confirm Success)
 
-Never assume a script completed successfully without validating the three primary verification signals:
+Never infer success from a completion message alone. The process has three explicit terminal states:
 
 ```
                   ┌──────────────────────────────────────────────┐
@@ -57,15 +57,15 @@ Never assume a script completed successfully without validating the three primar
                                          │
      ┌───────────────────────────────────┼───────────────────────────────────┐
      ▼                                   ▼                                   ▼
-[1. CLI Terminal]              [2. Automated Email]           [3. Cloud BI Dashboard]
-Exit Code: 0                   Subject: `[SUCCESS]...`         Header Refresh Timestamp
-Summary: "ORCHESTRATION        Attached QA Reports:            reflects today's date
-COMPLETE" in green             Plausibility CSVs + HTMLs       and expected record volume
+[1. CLI Terminal]              [2. Automated Email]           [3. Cloud BI Evidence]
+SUCCESS = exit 0               Subject matches terminal       Current-run verification
+FAILED = exit 1                state and includes QA detail    timestamp and expected totals
+UNVERIFIED = exit 2
 ```
 
-1. **Terminal Console:** Displays `>>> STEP 3: VALIDATION CHECKS: ALL PASSED` and ends with `ORCHESTRATION COMPLETE` (Exit Code `0`).
-2. **Automated Notification:** An automated execution summary arrives in your inbox with `[SUCCESS]` in the subject line, including the 17-point check status and runtime metrics.
-3. **Cloud Dashboard Timestamp:** Open the production BI application; the executive banner reflects today's date and the updated source quarter.
+1. **Terminal Console:** Trust only `ORCHESTRATION SUCCESS` with exit code `0`. Exit `1` means a blocking or downstream failure; exit `2` means the dashboard result could not be proven current.
+2. **Automated Notification:** The subject is labeled `[SUCCESS]`, `[FAILED]`, or `[UNVERIFIED]` and includes the corresponding QA detail.
+3. **Cloud Evidence:** Success requires a verification export created during the current run. Prior-run or missing files are never substituted.
 
 ---
 
@@ -76,7 +76,7 @@ The pipeline is intentionally decoupled into **code** (`core/`) and **configurat
 ### Playbook A: Adding a New Product Line or Therapy
 * **When Needed:** Marketing launches a new therapy line, or an upstream system introduces a renamed product code (flagged as `Unmapped product: 'New_Product_Name'` in log files).
 * **Step-by-Step Procedure:**
-  1. Open [config/mappings.yaml](../../config/mappings.yaml) in any standard text editor (VS Code, Notepad).
+  1. Open [config/mappings.yaml](../config/mappings.yaml) in any standard text editor (VS Code, Notepad).
   2. Locate the `product_renames:` section.
   3. Add the new mapping in alphabetical order:
      ```yaml
@@ -132,11 +132,14 @@ When an operational exception occurs, reference this structured diagnosis matrix
 Before deploying any configuration or logic modification to production, operators run the automated stress testing suite:
 
 ```bash
-python -m pytest tests/test_stress_pipeline.py -v --tb=short
+pip install -r requirements-test.txt
+python -m pytest -q
 ```
 
-### Coverage Scope (106 Automated Tests Passing):
-* **Numeric Normalization:** Handles US decimals, European comma decimals, apostrophe thousands separators (`1'234`), blanks, and dashes.
+### Coverage Scope:
+* **Numeric Normalization:** Handles US decimals, European comma decimals, apostrophe thousands separators (`1'234`), blanks, and dashes. Ambiguous values such as `1,234` require an explicit source policy and otherwise remain missing for validation.
 * **Date & Quarter Consistency:** Validates quarterly tokens (`25Q1`), sequence continuity, and calendar year boundaries.
 * **Dimensional Remapping:** 40+ therapy group variants, 21 country/export codes, and tax entity aliases.
 * **Schema Validation:** Pandera typing guarantees that missing mandatory keys trigger explicit assertion messages rather than silent data corruption.
+* **Publication Controls:** Failed QA reports preserve the last valid dataset; stale verification evidence produces an `UNVERIFIED` result.
+* **Public Demo:** Both successful three-scenario generation and deliberately corrupted input are exercised end to end.

@@ -4,7 +4,10 @@ import yaml
 import math
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
-import pandera as pa
+try:
+    import pandera.pandas as pa
+except ImportError:
+    import pandera as pa
 
 # Internal imports
 try:

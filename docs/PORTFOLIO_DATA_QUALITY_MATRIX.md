@@ -11,7 +11,7 @@
 
 In enterprise commercial reporting, silent data corruption is catastrophic: executive decisions, territorial sales quotas, and revenue forecasts depend on accurate market data. Traditional ETL pipelines often rely on passive failure handling (e.g., throwing a Python exception only if a script crashes).
 
-This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framework** featuring **17 independent automated validation gates**. The system operates as a **Circuit Breaker**: if any structural reconciliation check fails, the pipeline halts immediately, preventing corrupt or truncated data from ever reaching the production cloud BI dashboards.
+This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framework** featuring **17 automated checks**. Structural and reconciliation checks are blocking: a failed candidate is not published and the last valid dataset remains in place. Cloud verification runs after reload and produces a separate `SUCCESS`, `FAILED`, or `UNVERIFIED` terminal state.
 
 ```
  RAW EXTERNAL EXTRACTS (CRM, Forecasts, Registries, Ad-hoc Files)
@@ -30,8 +30,8 @@ This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framew
                            │ Passed
                            ▼
  ┌──────────────────────────────────────────────────────────────────┐
- │ TIER 3: Upstream-to-Downstream Reconciliation (Conservation Laws)│  Checks 3, 4, 5, 6, 9
- │ • Exact unit & revenue checksums, country preservation, BI match │
+ │ TIER 3: Pre-Publication Reconciliation (Conservation Laws)       │  Checks 3, 4, 5, 6
+ │ • Unit/revenue conservation and country preservation             │
  └─────────────────────────┬────────────────────────────────────────┘
                            │ Passed
                            ▼
@@ -48,9 +48,9 @@ This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framew
                            │
             ┌──────────────┴──────────────┐
             ▼                             ▼
-   [All Gates Clean]             [Soft Anomalies Flagged]
-   Production Reloaded           Auto-Generated Review Drafts Sent
-   Executive Status Broadcast    to Regional Financial Controllers
+ [Blocking Gates Clean]         [Soft Anomalies Flagged]
+ Publish + Cloud Reload          Local Review Drafts Generated
+ Check 9: Fresh BI Verification for Regional Financial Controllers
 ```
 
 ---
@@ -67,7 +67,7 @@ This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framew
 | **6** | **Cross-Scenario Internal Consistency** | Tier 3 | 🔴 **Critical Block** | Cross-checks company units across all 3 reporting views (*Full Market*, *Addressable Market*, *Addressable Weighted*). | Enforces that organization baseline performance remains strictly identical across scenario models. |
 | **7** | **Magnitude Spike & Formatting Outlier Check** | Tier 4 | 🔴 **Critical Block** | Compares Live vs. Static forecast ratios per year/country/product; flags any ratio $>10\times$. | **Caught a 1,000x volume inflation bug** caused by European comma vs. US period decimal string parsing. |
 | **8** | **Minimum Row-Count Sanity Gate** | Tier 2 | 🔴 **Critical Block** | Enforces conservative minimum row thresholds per source and scenario (e.g., CRM Addressable $\ge 5,000$ rows). | Instantly halts the pipeline if a source file is truncated or an upstream filter drops an entire product family. |
-| **9** | **End-to-End Cloud BI Checksum** | Tier 3 | 🔴 **Critical Block** | Headless browser exports aggregate totals from the live Qlik Cloud application and compares them against Python master CSV ($Tolerance < 1.0\text{ EUR}$). | Catches Qlik load-script formula bugs, server-side reload timeouts, or partial app cache corruptions. |
+| **9** | **End-to-End Cloud BI Checksum** | Tier 3 | 🔴 **Post-Reload Failure Gate** | Accepts only a current-run Qlik export, then compares aggregate totals against the validated Python master CSV ($Tolerance < 1.0\text{ EUR}$). Missing or stale evidence produces `UNVERIFIED`; a checksum mismatch produces `FAILED`. | Catches Qlik load-script formula bugs, server-side reload timeouts, partial app cache corruption, and stale verification reuse. |
 | **10** | **Negative Unit Threshold & Whitelist** | Tier 4 | 🔴 **Critical Block** | Flags any net unit value $< -100$; filters against an audited whitelist of verified accounting reversals (returns/EOL). | Catches formula inversion bugs in manual adjustment spreadsheets. |
 | **11** | **Forecast Copy-Paste Detection** | Tier 5 | 🟡 **Warning Alert** | Scans multi-year forward projections for identical organization and market units across consecutive planning years. | Identifies field analysts who duplicated previous year forecasts without updating planning assumptions. |
 | **12** | **Suspicious Round-Number Heuristics** | Tier 5 | 🟡 **Warning Alert** | Detects forecast figures rounded to exact hundreds/thousands when historical actuals exhibit organic variance. | Flags unrefined placeholder numbers entered by regional planning teams prior to finalized reviews. |
@@ -82,14 +82,14 @@ This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framew
 ## 🔍 Deep-Dive: Real-World Engineering Failure Modes Prevented
 
 ### Case 1: The "European Decimal 1,000x Inflation Bug" (Check #7)
-* **The Root Cause:** In German and French operating extracts, numbers are formatted with period thousand separators and comma decimals (e.g., `1.234,50`). In US-formatted extracts, commas represent thousands (e.g., `1,234.50`). A standard `pd.to_numeric(val.replace(',', ''))` transformed `1,500` (1.5 units) into `1500` (fifteen hundred units)—a **1,000x inflation**.
+* **The Root Cause:** In German and French operating extracts, numbers are formatted with period thousand separators and comma decimals (e.g., `1.234,50`). In US-formatted extracts, commas represent thousands (e.g., `1,234.50`). A single-separator value such as `1,500` is intrinsically ambiguous without a source-format contract; blindly removing the comma can turn a decimal-intended value into a **1,000x inflation**.
 * **The Governance Gate:** Check #7 evaluates the ratio between Live forecast submissions and verified Static planning baselines for every `(Year, Country, Product)` tuple.
-* **The Circuit Breaker:** When the ratio hit `1000.0x`, Check #7 tripped immediately, generating an alert and blocking the Qlik Cloud reload. A specialized `_smart_parse()` regex function was engineered into the core ingestion engine to dynamically distinguish European from US number notations.
+* **The Blocking Gate:** When the ratio hit `1000.0x`, Check #7 failed the candidate, generated an alert, and blocked the Qlik Cloud reload. The shared `num_smart()` parser now validates grouping, handles mixed and apostrophe formats, and rejects ambiguous single separators unless the source explicitly supplies decimal or thousands policy.
 
 ### Case 2: Silent Data Drop in Overseas Territories (Check #3)
 * **The Root Cause:** During an ETL migration, a SQL-like merge condition `on=['COUNTRY_CODE']` dropped 13 export territories (e.g., French Overseas Departments and regional distributor codes) because the secondary lookup table only listed sovereign European nations.
 * **The Governance Gate:** Check #3 calculates a country-by-country unit conservation hash before and after the pipeline transformation.
-* **The Circuit Breaker:** The system flagged an 8.4% unit mismatch in the French commercial entity. The pipeline halted, allowing developers to implement a dedicated territorial alias dictionary in `config/mappings.yaml` without publishing flawed market-share figures.
+* **The Blocking Gate:** The system flagged an 8.4% unit mismatch in the French commercial entity. The pipeline halted, allowing developers to implement a dedicated territorial alias dictionary in `config/mappings.yaml` without publishing flawed market-share figures.
 
 ---
 

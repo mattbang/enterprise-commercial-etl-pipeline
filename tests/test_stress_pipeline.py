@@ -23,6 +23,7 @@ Usage:
 
 import sys
 import math
+import importlib.util
 from pathlib import Path
 
 import numpy as np
@@ -43,13 +44,16 @@ from core.utils import num_smart, quarter_to_numeric, canon_product, dedupe_colu
 # =============================================================================
 STRESS_DIR = ROOT / "data" / "test_sandbox" / "stress"
 MAPPINGS_YAML = ROOT / "config" / "mappings.yaml"
+PRIVATE_INTEGRATION_AVAILABLE = importlib.util.find_spec("integration") is not None
 
 
 @pytest.fixture(scope="session", autouse=True)
-def generate_stress_data():
+def generate_stress_data(tmp_path_factory):
     """Generate all stress data files once per session."""
+    global STRESS_DIR
     from tests.generate_stress_data import generate_all
-    paths = generate_all()
+    STRESS_DIR = tmp_path_factory.mktemp("pipeline-stress")
+    paths = generate_all(STRESS_DIR)
     return paths
 
 
@@ -76,13 +80,21 @@ class TestNumericParsing:
         (-0.5, -0.5),
         # US format strings
         ("1234", 1234.0),
-        ("1,234", 1.234),        # Single comma, no dot: num_smart treats comma as decimal
+        ("1,234", np.nan),       # Ambiguous without a source-format contract
         ("1,234.56", 1234.56),
         ("1,234,567.89", 1234567.89),
+        ("1,234,567", 1234567.0),
         # EU format strings
-        ("1.234", 1.234),       # Single dot, no comma: num_smart treats dot as decimal
+        ("1.234", np.nan),       # Ambiguous without a source-format contract
         ("1.234,56", 1234.56),
         ("1.234.567,89", 1234567.89),
+        ("1.234.567", 1234567.0),
+        ("3031.065", 3031.065), # Four-digit leading group makes this a decimal
+        # Swiss and accounting formats
+        ("6'170.00", 6170.0),
+        ("1'234", 1234.0),
+        ("1\u2019234,50", 1234.5),
+        ("(1,234.56)", -1234.56),
         # NaN / blank / dash
         (np.nan, np.nan),
         ("", np.nan),
@@ -101,7 +113,24 @@ class TestNumericParsing:
             assert result == pytest.approx(expected, abs=0.01), \
                 f"num_smart({input_val!r}) = {result}, expected {expected}"
 
+    @pytest.mark.parametrize("separator", [",", "."])
+    def test_ambiguous_single_separator_requires_policy(self, separator):
+        value = f"1{separator}234"
+        assert pd.isna(num_smart(value))
+        assert num_smart(value, ambiguous="decimal") == pytest.approx(1.234)
+        assert num_smart(value, ambiguous="thousands") == pytest.approx(1234.0)
+        with pytest.raises(ValueError, match="Ambiguous numeric value"):
+            num_smart(value, ambiguous="raise")
 
+    @pytest.mark.parametrize("value", ["12,34,567", "1.23.456", "1'23", "1 23", True, np.inf])
+    def test_invalid_numeric_shapes_return_nan(self, value):
+        assert pd.isna(num_smart(value))
+
+
+@pytest.mark.skipif(
+    not PRIVATE_INTEGRATION_AVAILABLE,
+    reason="private integration package is not part of the public portfolio",
+)
 class TestToFloatSeries:
     """Tests for _to_float_series() from redbull_integration."""
 
@@ -315,7 +344,7 @@ class TestSchemaValidation:
         InputSchemaCrm.validate(df, lazy=True)
 
     def test_invalid_country_fails(self):
-        from core.schemas import InputSchemaCrm, ALL_VALID_INPUTS
+        from core.schemas import InputSchemaCrm, ALL_VALID_INPUTS, pa
         if not ALL_VALID_INPUTS:
             pytest.skip("Schema config not loaded")
 
@@ -327,7 +356,6 @@ class TestSchemaValidation:
             "Market Units": [100.0],
         })
 
-        import pandera as pa
         with pytest.raises(pa.errors.SchemaErrors):
             InputSchemaCrm.validate(df, lazy=True)
 
@@ -469,6 +497,10 @@ class TestICMBIOLoader:
 # =============================================================================
 # 9. REDBULL LOADER
 # =============================================================================
+@pytest.mark.skipif(
+    not PRIVATE_INTEGRATION_AVAILABLE,
+    reason="private integration package is not part of the public portfolio",
+)
 class TestRedBullLoader:
     """Tests for load_redbull_forecast() with stress data."""
 

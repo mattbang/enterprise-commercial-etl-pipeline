@@ -1,8 +1,9 @@
 # Enterprise Commercial BI & ETL Pipeline Suite
+[![CI](https://github.com/mattbang/enterprise-commercial-etl-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mattbang/enterprise-commercial-etl-pipeline/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Demo](https://img.shields.io/badge/Demo-Self--Contained-2EA44F)](#-public-demo)
 [![BPMN 2.0](https://img.shields.io/badge/BPMN-2.0%20Compliant-F05A28?logo=camunda&logoColor=white)](docs/pipeline_orchestration.bpmn)
-[![Architecture](https://img.shields.io/badge/Pattern-Circuit%20Breaker-8A2BE2)](#-multi-layer-quality--governance-gates)
+[![Architecture](https://img.shields.io/badge/Control-Blocking%20Quality%20Gates-8A2BE2)](#-production-case-study-architecture--bpmn-20-process-map)
 [![Status](https://img.shields.io/badge/Status-Public%20Portfolio%20Demo-brightgreen)](#-public-demo)
 
 > **Sanitized production case study with a runnable synthetic demo** of a commercial-data pipeline that reconciles market and organization actuals, generates three reporting scenarios, and blocks invalid output before publication.
@@ -36,11 +37,11 @@ See [Public Demo Boundary](docs/PUBLIC_DEMO_BOUNDARY.md) for the exact productio
 
 ## 📌 30-Second Executive Summary
 
-| Business Challenge (Before) | Technical Solution (Automated) | Quantified Business Impact |
+| Business Challenge (Before) | Technical Solution (Automated) | Reported Production Outcome |
 | :--- | :--- | :--- |
-| **Manual Wrangling:** Downloading extracts across 4 separate systems; 6–8 hours spent weekly standardizing inconsistent European number formats in Excel. | **Headless Selenium + Vectorized Pandas:** Automated ingestion with persistent saved browser authentication; custom regex smart parser standardizing heterogeneous number formats. | **~98% reduction in runtime** (from ~8 hours down to **under 4 minutes**), saving **40+ hours annually** with zero single-person operational dependency. |
-| **Silent Data Corruption:** Risk of formula errors, dropped distributor territories, or misparsed currency formats reaching executive dashboards. | **17-Tier Data Quality Circuit Breaker:** Active reconciliation gates ($Units_{in} = Units_{out}$), 10x magnitude spike catchers, and human-error heuristics. | **Zero dirty data published:** Execution automatically halts on discrepancy; local controller review email drafts generated dynamically. |
-| **Operational Knowledge Silo:** Process dependent on one person's tribal knowledge of data quirks and manual mapping tables. | **Turnkey Governance & Code-Free Config:** Product and country mappings externalized to YAML; comprehensive 1-hour operator onboarding manual. | **Junior analysts or interns onboard in under 1 hour**; non-technical staff maintain product catalogs without code changes. |
+| **Manual Wrangling:** Downloading extracts across 4 separate systems; 6–8 hours spent weekly standardizing inconsistent European number formats in Excel. | **Headless Selenium + Vectorized Pandas:** Automated ingestion with saved browser authentication; locale-aware parsing standardizing heterogeneous number formats. | The production case study recorded an approximately **98% runtime reduction**, from about 8 hours to under 4 minutes. These operational figures are contextual claims, not outputs of the public demo. |
+| **Silent Data Corruption:** Risk of formula errors, dropped distributor territories, or misparsed currency formats reaching executive dashboards. | **17 checks across five quality tiers:** Active reconciliation gates ($Units_{in} = Units_{out}$), magnitude spike checks, and human-error heuristics. | **Blocking publication control:** A failed candidate preserves the last valid published dataset and exits non-zero; warning-level controller review drafts remain separate. |
+| **Operational Knowledge Silo:** Process dependent on one person's knowledge of data quirks and manual mapping tables. | **Configuration-Driven Governance:** Product and country mappings externalized to YAML and supported by an operator handover guide. | Routine mapping maintenance can be performed without changing Python code. |
 
 ---
 
@@ -48,9 +49,7 @@ See [Public Demo Boundary](docs/PUBLIC_DEMO_BOUNDARY.md) for the exact productio
 
 The pipeline executes a 4-lane orchestration sequence across the Operator, Master Orchestrator, Ingestion layer, and Cloud BI platform. The underlying process model is authored in standard **OMG BPMN 2.0** with hierarchical sub-processes:
 
-![Pipeline Orchestration BPMN Process Map](docs/pipeline_orchestration.png)
-
-*The complete interactive BPMN 2.0 XML model is available at [`docs/pipeline_orchestration.bpmn`](docs/pipeline_orchestration.bpmn). It can be opened directly in [Camunda Modeler](https://camunda.com/download/modeler/) (double-click sub-processes to drill down) or viewed online in [bpmn.io](https://demo.bpmn.io).*
+*The editable BPMN 2.0 model is available at [`docs/pipeline_orchestration.bpmn`](docs/pipeline_orchestration.bpmn). It can be opened directly in [Camunda Modeler](https://camunda.com/download/modeler/) or viewed online in [bpmn.io](https://demo.bpmn.io). The sequence below is the current rendered summary.*
 
 ```mermaid
 sequenceDiagram
@@ -70,27 +69,31 @@ sequenceDiagram
     DL-->>Orch: Staged 4 Raw Feeds in data/in/ (~140s)
     deactivate DL
 
-    %% Transformation & Disaggregation
-    Note over Orch: Sub-Process 3: Vectorized ETL & 3-Scenario Disaggregation
-    Orch->>Orch: Export Master CSV & Sync to Shared Cloud Storage
-
-    %% Cloud BI Handshake
-    Orch->>BI: Sub-Process 4: Trigger Qlik Cloud App Reload
-    activate BI
-    BI-->>Orch: Reload Acknowledged (Wait 45s server indexing)
-    BI-->>Orch: Download Post-Reload Verification Dataset
-    deactivate BI
-
-    %% Circuit Breaker Quality Gates
-    Note over Orch: Sub-Process 5: 17-Layer Data Quality & Governance Gates
-    alt Structural Gate Fails (Data Drop / Checksum Mismatch)
-        Orch-->>Op: 🔴 Trip Circuit Breaker: Send Urgent Incident Alert
-        Note over Orch: Execution Halted (Zero Dirty Data Published)
-    else All 17 Structural Gates Pass
-        opt Field Plausibility Warnings Detected
-            Orch->>Ctrl: Sub-Process 6: Dispatch Pre-Filled Review Drafts ({Country}_data_review.html)
+    %% Transformation, blocking validation, and publication
+    Note over Orch: Sub-Process 3: Transform candidate and generate 3 scenarios
+    Orch->>Orch: Run blocking structural and reconciliation checks
+    alt Blocking validation fails
+        Orch-->>Op: FAILED (exit 1); retain last valid published dataset
+    else Candidate passes
+        Orch->>Orch: Atomically publish validated CSV to shared storage
+        Orch->>BI: Sub-Process 4: Trigger Qlik Cloud app reload
+        activate BI
+        BI-->>Orch: Reload acknowledged
+        BI-->>Orch: Export current-run verification dataset
+        deactivate BI
+        alt Fresh verification is missing or stale
+            Orch-->>Op: UNVERIFIED (exit 2); do not accept prior-run evidence
+        else Fresh verification received
+            Orch->>Orch: Reconcile downstream totals against validated CSV
+            alt Downstream reconciliation fails
+                Orch-->>Op: FAILED (exit 1)
+            else Reconciliation passes
+                opt Field plausibility warnings detected
+                    Orch->>Ctrl: Generate local controller review drafts
+                end
+                Orch-->>Op: SUCCESS (exit 0)
+            end
         end
-        Orch-->>Op: 🟢 Dispatch Clean Executive Summary (Dashboard Live)
     end
     deactivate Orch
 ```
@@ -121,36 +124,40 @@ Commercial leadership evaluates performance through three distinct analytical pe
 
 The engine dynamically synthesizes all three reporting scenarios while enforcing an automated **Mathematical Conservation Guard** ($Units_{BIO}$ remains invariant across all scenarios).
 
-### 2. European Heterogeneous Numeric Parser (`_smart_parse()`)
+### 2. Locale-Aware Numeric Parser (`num_smart()`)
 Ingests extracts from subsidiaries across Germany, France, the UK, and Switzerland containing conflicting numerical formats:
 * German extracts: `6.170,00` (comma decimal, period thousand)
 * US/UK extracts: `6,170.00` (period decimal, comma thousand)
 * Swiss/Nordic extracts: `6'170.00` (apostrophe thousand separator)
 
-The custom regex engine evaluates string character positions dynamically, preventing volume calculation corruptions.
+The parser validates separator grouping before conversion and supports repeated thousands groups, Unicode apostrophes, accounting negatives, blanks, and dash placeholders. Intrinsically ambiguous values such as `1,234` return `NaN` by default; a source with a known format must explicitly select decimal or thousands interpretation.
 
 ### 3. Closed-Loop Cloud BI Handshake
 Rather than pushing data blindly, the pipeline executes a bidirectional verification handshake:
-1. Dispatches authenticated reload command to Qlik Cloud API/DOM.
-2. Waits 45 seconds for cloud data model stabilization.
-3. Downloads the live post-reload audit sheet (`MarketData_Add_Final_Qlik_Verified.csv`).
-4. Compares cloud aggregate Net Revenue and Unit volumes against the Python master CSV ($Tolerance < 1.00\text{ EUR}$).
+1. Requires the current candidate's blocking QA report to pass before reload.
+2. Atomically publishes the validated CSV and dispatches the authenticated Qlik reload.
+3. Accepts only a current-run post-reload audit sheet (`MarketData_Add_Final_Qlik_Verified.csv`).
+4. Compares cloud aggregate Net Revenue and Unit volumes against the validated Python master CSV ($Tolerance < 1.00\text{ EUR}$).
+
+The terminal state is explicit: `SUCCESS` exits `0`, `FAILED` exits `1`, and missing or stale downstream evidence produces `UNVERIFIED` with exit `2`.
 
 ### 4. Automated Regional Governance Drafts
 When soft plausibility anomalies are detected (copy-paste forecast inertia, suspiciously round figures like `500`, or unchanged baselines), the engine automatically compiles **responsive, pre-filled HTML review drafts** (`controller_drafts/{Country}_data_review.html`) customized for regional financial controllers.
 
 ---
 
-## 🧪 Public Demo Verification
+## 🧪 Public Test Suite
 
-The supported public demo has focused acceptance tests for its successful path and blocking-failure behavior:
+Install the reproducible test dependencies and run the complete public suite:
 
 ```bash
-pip install pytest
-python -m pytest tests/test_demo.py -q
+pip install -r requirements-test.txt
+python -m pytest -q
 ```
 
-The broader production-derived test files remain as case-study evidence, but some depend on the intentionally excluded private integration package. A future public-suite milestone will consolidate those tests around the standalone boundary.
+The suite covers parser edge cases, mappings, schema rejection, conservation invariants, three-scenario generation, blocking publication, terminal statuses, deliberately corrupted input, and the end-to-end synthetic demo. Optional checks tied to unpublished connectors or locally generated production outputs are identified explicitly and skip when those artifacts are absent.
+
+GitHub Actions runs the same suite on Python 3.10 and 3.12 for every pull request and every push to `main`.
 
 ---
 
