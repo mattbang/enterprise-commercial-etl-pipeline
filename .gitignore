@@ -1,0 +1,42 @@
+# =============================================================================
+# Portfolio Showcase .gitignore
+# Prevents accidental upload of local runtime files, browser data, or raw data
+# =============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environments & IDEs
+.venv/
+env/
+venv/
+.vscode/
+.DS_Store
+*.swp
+
+# Sensitive local browser profiles & sessions
+chrome_automation_profile/
+*.crdownload
+
+# Real input & output commercial spreadsheets (Keep sample/ only)
+data/in/
+data/out/
+!data/sample/
+!data/sample/*.xlsx
+!data/sample/*.csv
+
+# Local runtime logs & temporary locks
+*.log
+orchestrator.log
+~$*.xlsx
+~$*.docx
+ai_context.jsonl
+
+# Internal Obsidian Vault & Agent configurations (Keep portfolio docs only)
+QLIK Pipeline Obsidian Vault/
+.agent/
+.yoyo/
+Archive/

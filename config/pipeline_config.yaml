@@ -1,0 +1,112 @@
+# Portfolio BI Pipeline Configuration
+# This file centralizes all paths, thresholds, and business logic constants.
+
+environment: production
+
+email:
+  # Placeholder recipient; replace with the operational distribution address in private deployments.
+  recipient: "alerts@example.invalid"
+  enabled: true
+
+# Base paths for OneDrive and local storage
+# Override MIDWEST_ROOT via environment variable for portability:
+#   set MIDWEST_ROOT=C:/Users/YOUR_USER/OneDrive - SYNTHETIC_ORG_ONEDRIVE/MIDWEST QVD GENERATOR/MW FI
+storage:
+  midwest_root: "${MIDWEST_ROOT}"
+  onedrive_data_qvd: "${MIDWEST_ROOT}/DATA_QVD"
+  onedrive_assets: "${MIDWEST_ROOT}/Report_Automation/04_Assets"
+
+# Specific file paths (Inputs/Outputs)
+data_sources:
+  crm: "data/in/Market Tracker CRM DL.xlsx"
+  icm_market: "data/in/ICM_Market_DL.xlsx"
+  icm_bio: "data/in/ICM_BIO_DL.xlsx"
+  unconventional_market: "data/in/Unconventional_Market.xlsx"
+  redbull_live: "data/in/RedBull DL.xlsx"
+  redbull_static_dir: "data/in/RedBull Static Versions"
+  redbull_adjustments_dir: "data/in/RedBull Manual Adjustments"
+
+  # External dependencies
+  map_country_export: "config/mappings/map_COUNTRY_EXPORT.xlsx"
+  rb_mapping_xlsx: "config/mappings/map.market.ACCOUNTPOTENTIAL_ASPMSOVERVIEW.xlsx"
+  # Communal mapping table on shared network drive (year-robust: {YEAR} resolved at runtime)
+  communal_mapping_table: "S:/Shared/Finance/{YEAR}/MappingTables/MappingTable_{YEAR}.xlsx"
+  qvd_source_file: "${MIDWEST_ROOT}/DATA_QVD/MarketData_ASP_&_MS_Final_QVD_RB.qvd"
+
+# Final processing outputs
+outputs:
+  final_csv: "data/out/MarketData_ASP_&_MS_Final_python.csv"
+  qa_report_json: "data/out/MarketData_QA_report.json"
+  qvd_target_dir: "${MIDWEST_ROOT}/DATA_QVD/ASP_MS_DATA"
+
+# Orchestration settings
+orchestration:
+  timeouts:
+    # UPDATED 2026-02-21: Reduced for single-app setup (was 120/300/10 for 3 apps)
+    reload_wait_seconds: 45
+    poll_timeout_seconds: 120
+    poll_interval_seconds: 10
+
+selenium:
+  # Path to Chrome User Data to persist login sessions (REQUIRED for Qlik Cloud)
+  # UPDATED: Using dedicated Automation Profile to avoid locking main browser
+  chrome_profile_path: "chrome_automation_profile"
+  headless: true
+  # Selectors for Qlik Cloud item details page (updated 2026-02-20)
+  selectors:
+    more_button:
+      - "//button[@aria-label='More actions']"
+      - "//button[@title='More actions']"
+      - "//button[@aria-label='Actions']"
+      - "//button[@title='Actions']"
+    reload_button:
+      - "//span[text()='Reload now']"
+      - "//li[.//span[text()='Reload now']]"
+      - "show-more-reload"  # Legacy fallback
+
+# Placeholder Qlik Cloud app IDs; replace with private tenant values in private deployments
+# UPDATED 2026-02-21: Deprecated ASP & MS Overview and Add.RB.2 — only Addressable remains
+qlik_apps:
+  # Synthetic example app entry for the production Qlik app
+  asp_ms_addressable:
+    id: "aaaaaaaaaaaaaaaaaaaaaaaa"
+    name: "Addressable Market Portfolio Demo"
+    # Checksum sheet within this app for validation
+    checksum_sheet_id: "00000000-0000-4000-8000-000000000001"
+
+# Business thresholds and QA rules
+thresholds:
+  # Data preservation (±1 unit rule)
+  preservation:
+    unit_tolerance: 1.5
+    revenue_tolerance_keur: 0.05
+
+  # RedBull Plausibility
+  plausibility:
+    min_market_units: 50.0
+    min_bio_units: 20.0
+    max_units_delta_pct: 0.50
+    max_ms_delta_pp: 5.0
+
+  # Year-over-Year flags
+  yoy:
+    max_pct_bio: 0.50
+    min_abs_bio: 250
+    max_pct_mkt: 0.50
+    min_abs_mkt: 1000
+
+# Groupings used for special business logic
+logic_groups:
+  # Products where BIO units must be 0 (non-transvenous)
+  leadless_categories:
+    - "IPG DC iLP"
+    - "IPG SC iLP"
+    - "IPG SC Leadless"
+    - "IPG DC Leadless"
+    - "ICD SC S-ICD"
+
+  # Scenarios for version consistency checks
+  version_check_scenarios:
+    - "Actual Addressable weighted"
+    - "Actual Addressable"
+    - "Actual Full"

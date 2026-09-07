@@ -1,0 +1,287 @@
+countries:
+  - CC: "BE"
+    CRM_COUNTRY_NAME: "Belgium"
+    BIOS: 5140
+    Sales_Organisation: "BIO Belgium"
+  - CC: "CH"
+    CRM_COUNTRY_NAME: "Switzerland"
+    BIOS: 1210
+    Sales_Organisation: "BIO Switzerland"
+  - CC: "ES"
+    CRM_COUNTRY_NAME: "Spain"
+    BIOS: 5160
+    Sales_Organisation: "BIO Spain"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "France"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+  - CC: "GB"
+    CRM_COUNTRY_NAME: "United Kingdom"
+    BIOS: 5130
+    Sales_Organisation: "BIO UK"
+  - CC: "IE"
+    CRM_COUNTRY_NAME: "Ireland"
+    BIOS: 5130
+    Sales_Organisation: "BIO UK"
+  - CC: "IT"
+    CRM_COUNTRY_NAME: "Italy"
+    BIOS: 5370
+    Sales_Organisation: "BIO Italy"
+  - CC: "PT"
+    CRM_COUNTRY_NAME: "Portugal"
+    BIOS: 5190
+    Sales_Organisation: "BIO Portugal"
+  - CC: "CA"
+    CRM_COUNTRY_NAME: "Canada"
+    BIOS: 5515
+    Sales_Organisation: "BIO Canada"
+  - CC: "NL"
+    CRM_COUNTRY_NAME: "Netherlands"
+    BIOS: 5150
+    Sales_Organisation: "BIO Netherlands"
+  # Export/Other mappings
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Aruba"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Algeria"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Morocco"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Senegal"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Tunisia"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+  - CC: "GR"
+    CRM_COUNTRY_NAME: "Greece"
+    BIOS: "Error"
+    Sales_Organisation: "Error-Greece"
+    
+  # Force map these to France if they appear as countries
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "France"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "AW"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "France"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "DZ"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "France"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "MA"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "France"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "SN"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "France"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "TN"
+    
+  # Additional Export Territories -> Map to France
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Congo"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "CG"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Guadeloupe"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "GP"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Haiti"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "HT"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Martinique"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "MQ"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "New Caledonia"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "NC"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "French Polynesia"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "PF"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Reunion"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "RE"
+  - CC: "FR"
+    CRM_COUNTRY_NAME: "Rwanda"
+    BIOS: 5110
+    Sales_Organisation: "BIO France"
+    POS_CC: "RW"
+
+# RedBull Segment Mapping Rules
+# Used to refine segments when falling back to "CRM" or overriding specific groups
+redbull_segments:
+  - pattern: "ICD*"
+    segment: "ICD"
+    unit: null
+  - pattern: "IPG*"
+    segment: "IPG"
+    unit: null
+  - pattern: "CRT*"
+    segment: "CRT"
+    unit: null
+  - pattern: "ICM*"
+    segment: "ICM"
+    unit: null
+  - pattern: "LEADS*"
+    segment: "Leads"
+    unit: null
+  - pattern: "CATH*"
+    segment: "Catheters Ablation"
+    unit: "EP"
+  - pattern: "CATHETERS DIAGNOSTIC*"
+    segment: "Catheters Diagnostic"
+    unit: "EP"
+  - pattern: "TRANSSEPTAL*"
+    segment: "Transseptal Access"
+    unit: "EP"
+
+# Territory Re-mapping Rules
+# Used to map specific export territories or codes to a main country
+territory_map:
+  "Tunisia": "France"
+  "Algeria": "France"
+  "Morocco": "France"
+  "Senegal": "France"
+  "Aruba": "France"
+  "Congo": "France"
+  "Guadeloupe": "France"
+  "Haiti": "France"
+  "Martinique": "France"
+  "New Caledonia": "France"
+  "French Polynesia": "France"
+  "Reunion": "France"
+  "Rwanda": "France"
+  "CG": "France"
+  "GP": "France"
+  "HT": "France"
+  "MQ": "France"
+  "NC": "France"
+  "PF": "France"
+  "RE": "France"
+  "RW": "France"
+  "TN": "France"
+  "DZ": "France"
+  "MA": "France"
+  "SN": "France"
+  "AW": "France"
+
+# Product Standardization Rules
+# Maps exact strings in REDBULL PRODUCT to standardized names
+# STRATEGY: 
+# 1. "Conventional" -> Pure conventional (e.g. IPG SC Conventional)
+# 2. "Leadless" / "S-ICD" -> Pure non-transvenous (e.g. IPG SC Leadless)
+# 3. "+ Leadless" / "+ S-ICD" -> Combined category (e.g. IPG SC + Leadless)
+
+product_renames:
+  # --- IPG Single Chamber ---
+  "IPG Single Chamber": "IPG SC Conventional"
+  "IPG SINGLE CHAMBER": "IPG SC Conventional"
+  "IPG Single Chamber Conventional": "IPG SC Conventional"
+  "IPG SC Conventional": "IPG SC Conventional"
+  "IPG SC": "IPG SC Conventional"
+  
+  # Leadless → same PRODUCT_GROUP as conventional parent (IPG SC)
+  "Single Chamber IPG - Leadless": "IPG SC"
+  "SINGLE CHAMBER IPG - LEADLESS": "IPG SC"
+  "IPG Single Chamber - Leadless": "IPG SC"
+  "IPG Leadless": "IPG SC"
+  "IPG SC Leadless": "IPG SC"
+  
+  # Combined IPG mega-rollup → preserve combined identity
+  "IPG SC & DC [Conventional + Leadless]": "IPG SC + Leadless"
+  "IPG Single + Dual Chamber": "IPG SC + Leadless"
+  "IPG SC + Leadless": "IPG SC + Leadless"
+  
+  # --- IPG Dual Chamber ---
+  "IPG Dual Chamber": "IPG DC Conventional"
+  "IPG DUAL CHAMBER": "IPG DC Conventional"
+  "IPG DC Conventional": "IPG DC Conventional"
+  "IPG DC": "IPG DC Conventional"
+  
+  # Leadless → same PRODUCT_GROUP as conventional parent (IPG DC)
+  "Dual Chamber IPG - Leadless": "IPG DC"
+  "DUAL CHAMBER IPG - LEADLESS": "IPG DC"
+  "IPG Dual Chamber - Leadless": "IPG DC"
+  "IPG DC Leadless": "IPG DC"
+  
+  "IPG DC + Leadless": "IPG DC"
+  
+  # --- ICD Single Chamber ---
+  "ICD Single Chamber": "ICD SC Conventional"
+  "ICD SINGLE CHAMBER": "ICD SC Conventional"
+  "ICD SC Conventional": "ICD SC Conventional"
+  "ICD SC": "ICD SC Conventional"
+  
+  # S-ICD / Non-Transvenous → same PRODUCT_GROUP as conventional parent (ICD SC)
+  "S-ICD": "ICD SC"
+  "ICD SC - Non-Transvenous": "ICD SC"
+  "ICD SINGLE CHAMBER NON-TRANSVENOUS": "ICD SC"
+  "ICD Single Chamber Non-Transvenous": "ICD SC"
+  "ICD SC - Non-Transv.": "ICD SC"
+  "ICD SC Non-Transv.": "ICD SC"
+  "ICD SC S-ICD": "ICD SC"
+  "ICD SC + Non-Trans.": "ICD SC + S-ICD"
+  
+  "ICD SC + S-ICD": "ICD SC + S-ICD"
+  
+  # --- ICD Dual Chamber ---
+  "ICD Dual Chamber": "ICD DC Conventional"
+  "ICD DUAL CHAMBER": "ICD DC Conventional"
+  "ICD DC Conventional": "ICD DC Conventional"
+  "ICD DC": "ICD DC Conventional"
+  
+  # --- CRTs ---
+  "CRT Defibrillator": "CRT-D"
+  "CRT Defibrillators": "CRT-D"
+  "CRT DEFIBRILLATOR": "CRT-D"
+  "CRT DEFIBRILLATORS": "CRT-D"
+  "CRT - D": "CRT-D"
+  "CRT – D": "CRT-D"
+  "CRT - DEFIBRILLATORS": "CRT-D"
+  
+  "CRT Pacemaker": "CRT-P"
+  "CRT Pacemakers": "CRT-P"
+  "CRT PACEMAKER": "CRT-P"
+  "CRT PACEMAKERS": "CRT-P"
+  "CRT - P": "CRT-P"
+  "CRT – P": "CRT-P"
+  "CRT – P ": "CRT-P"
+  "CRT - PACEMAKERS": "CRT-P"
+  
+  # --- Other ---
+  "ICM & Other Diagnostics": "ICM"
+  "ICM and Other Diagnostics": "ICM"
+  "ICM & OTHER DIAGNOSTICS": "ICM"
+  "ICM": "ICM"
+  
+  # iLP aliases → parent group (no longer separate product group)
+  "IPG SC iLP": "IPG SC"
+  "IPG DC iLP": "IPG DC"
+
