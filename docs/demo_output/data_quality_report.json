@@ -1,0 +1,60 @@
+{
+  "status": "PASS",
+  "source_rows": 20,
+  "candidate_rows": 28,
+  "output_rows": 28,
+  "checks_passed": 10,
+  "checks_total": 10,
+  "checks": [
+    {
+      "name": "Unique source grain",
+      "status": "PASS",
+      "detail": "market duplicate rows=0; organization duplicate rows=0"
+    },
+    {
+      "name": "Quarter format",
+      "status": "PASS",
+      "detail": "valid values=20/20"
+    },
+    {
+      "name": "Source key reconciliation",
+      "status": "PASS",
+      "detail": "matched rows=10/10"
+    },
+    {
+      "name": "Numeric completeness",
+      "status": "PASS",
+      "detail": "all four measures must be numeric"
+    },
+    {
+      "name": "Non-negative measures",
+      "status": "PASS",
+      "detail": "market and organization measures must be >= 0"
+    },
+    {
+      "name": "Product rule coverage",
+      "status": "PASS",
+      "detail": "all products mapped"
+    },
+    {
+      "name": "Weight bounds",
+      "status": "PASS",
+      "detail": "all scenario weights must be between 0 and 1"
+    },
+    {
+      "name": "Three reporting scenarios",
+      "status": "PASS",
+      "detail": "generated scenarios=3"
+    },
+    {
+      "name": "Organization metric conservation",
+      "status": "PASS",
+      "detail": "unit spread=0.000000; revenue spread=0.000000 K EUR"
+    },
+    {
+      "name": "Weighted market capacity",
+      "status": "PASS",
+      "detail": "organization measures cannot exceed the weighted market"
+    }
+  ]
+}

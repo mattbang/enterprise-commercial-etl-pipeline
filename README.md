@@ -1,12 +1,36 @@
 # Enterprise Commercial BI & ETL Pipeline Suite
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Pytest](https://img.shields.io/badge/Tests-106%2F106%20Passed-2EA44F?logo=pytest&logoColor=white)](tests/)
+[![Demo](https://img.shields.io/badge/Demo-Self--Contained-2EA44F)](#-public-demo)
 [![BPMN 2.0](https://img.shields.io/badge/BPMN-2.0%20Compliant-F05A28?logo=camunda&logoColor=white)](docs/pipeline_orchestration.bpmn)
 [![Architecture](https://img.shields.io/badge/Pattern-Circuit%20Breaker-8A2BE2)](#-multi-layer-quality--governance-gates)
-[![Status](https://img.shields.io/badge/Status-Production%20Active-brightgreen)](#)
+[![Status](https://img.shields.io/badge/Status-Public%20Portfolio%20Demo-brightgreen)](#-public-demo)
 
-> **Enterprise-grade automated data pipeline** reconciling multi-source commercial CRM actuals, diagnostic registries, and corporate planning forecasts across **8 European markets and 13 export territories**.
-> Features automated headless browser ingestion, 3-scenario dynamic financial disaggregation, a 17-layer data quality circuit breaker, and closed-loop cloud BI synchronization.
+> **Sanitized production case study with a runnable synthetic demo** of a commercial-data pipeline that reconciles market and organization actuals, generates three reporting scenarios, and blocks invalid output before publication.
+
+## Public Demo
+
+The supported public path is local and self-contained. It requires no Qlik tenant, browser authentication, shared drive, email account, or unpublished integration package.
+
+```bash
+git clone https://github.com/mattbang/enterprise-commercial-etl-pipeline.git
+cd enterprise-commercial-etl-pipeline
+pip install -r requirements-demo.txt
+python demo.py
+```
+
+The run writes a transformed dataset, scenario summary, quality report, and run summary to `demo_output/`.
+
+### Inspect a completed run
+
+| Scenario | Rows | Market units | Market revenue (K EUR) | Organization units | Organization revenue (K EUR) |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Actual Full | 10 | 3,790.0 | 21,440.0 | 997 | 5,692 |
+| Actual Addressable | 9 | 3,670.0 | 21,200.0 | 997 | 5,692 |
+| Actual Addressable weighted | 9 | 2,959.6 | 17,080.6 | 997 | 5,692 |
+
+The constant organization totals are the central conservation result. Review the [demo output walkthrough](docs/DEMO_OUTPUT_WALKTHROUGH.md), [transformed dataset](docs/demo_output/transformed_dataset.csv), or [10-check quality report](docs/demo_output/data_quality_report.json) without running any code.
+
+See [Public Demo Boundary](docs/PUBLIC_DEMO_BOUNDARY.md) for the exact production-versus-demo scope.
 
 ---
 
@@ -20,7 +44,7 @@
 
 ---
 
-## 🗺️ System Architecture & BPMN 2.0 Process Map
+## 🗺️ Production Case Study Architecture & BPMN 2.0 Process Map
 
 The pipeline executes a 4-lane orchestration sequence across the Operator, Master Orchestrator, Ingestion layer, and Cloud BI platform. The underlying process model is authored in standard **OMG BPMN 2.0** with hierarchical sub-processes:
 
@@ -117,65 +141,40 @@ When soft plausibility anomalies are detected (copy-paste forecast inertia, susp
 
 ---
 
-## 🧪 Chaos Engineering & Automated Test Harness
+## 🧪 Public Demo Verification
 
-The pipeline is backed by a **106-test automated test suite** that validates system stability against intentionally corrupted synthetic spreadsheets:
+The supported public demo has focused acceptance tests for its successful path and blocking-failure behavior:
 
 ```bash
-# Run the complete test suite
-python -m pytest tests/test_stress_pipeline.py -v --tb=short
+pip install pytest
+python -m pytest tests/test_demo.py -q
 ```
 
-```text
-============================= test session starts ==============================
-collected 106 items
-
-tests/test_stress_pipeline.py::TestNumericParsing (17 tests) ................. PASSED
-tests/test_stress_pipeline.py::TestQuarterParsing (9 tests) ......... PASSED
-tests/test_stress_pipeline.py::TestProductMapping (3 tests) ... PASSED
-tests/test_stress_pipeline.py::TestCountryMapping (5 tests) ..... PASSED
-tests/test_stress_pipeline.py::TestSchemaValidation (2 tests) .. PASSED
-tests/test_stress_pipeline.py::TestCRMLoader (5 tests) ..... PASSED
-tests/test_stress_pipeline.py::TestICMMarketLoader (3 tests) ... PASSED
-tests/test_stress_pipeline.py::TestICMBIOLoader (2 tests) .. PASSED
-tests/test_stress_pipeline.py::TestForecastLoader (6 tests) ...... PASSED
-tests/test_stress_pipeline.py::TestProductLogic (8 tests) ........ PASSED
-tests/test_stress_pipeline.py::TestColumnSafety (2 tests) .. PASSED
-tests/test_stress_pipeline.py::TestOutputValidation (9 tests) ......... PASSED
-tests/test_pipeline_logic.py (35 tests) ................................... PASSED
-
-======================== 106 passed in 8.42s =========================
-```
+The broader production-derived test files remain as case-study evidence, but some depend on the intentionally excluded private integration package. A future public-suite milestone will consolidate those tests around the standalone boundary.
 
 ---
 
-## 🚀 Quick Start (Local Execution)
+## 🚀 Public Demo Options
 
 ### Prerequisites
 * Python 3.10+
-* Google Chrome (for headless browser automation)
 
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/enterprise-bi-etl-pipeline.git
-cd enterprise-bi-etl-pipeline
+git clone https://github.com/mattbang/enterprise-commercial-etl-pipeline.git
+cd enterprise-commercial-etl-pipeline
 
-# Install dependencies
-pip install -r requirements.txt
+# Install the minimal public-demo dependencies
+pip install -r requirements-demo.txt
 ```
 
-### Running the Pipeline
+### Run the supported public demo
 ```bash
-# Standard Execution (Ingestion, transformation, cloud reload, and quality gates)
-python orchestrate_update.py
-
-# Reprocess existing data without re-downloading (useful after config edits)
-python orchestrate_update.py --skip-downloads
-
-# Safe dry-run mode (simulates pipeline without cloud reload or sending emails)
-python orchestrate_update.py --dry-run
+python demo.py
 ```
+
+`orchestrate_update.py` is retained as production-reference architecture. It depends on private connectors and environment-specific services that are intentionally excluded from this public repository.
 
 ---
 

@@ -1,0 +1,5 @@
+PUBLIC PORTFOLIO DEMO
+Status: FAIL
+Source rows: 20
+Output rows: 0
+Blocking checks passed: 9/10

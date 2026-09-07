@@ -1,0 +1,5 @@
+PUBLIC PORTFOLIO DEMO
+Status: PASS
+Source rows: 20
+Output rows: 28
+Blocking checks passed: 10/10

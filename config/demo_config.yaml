@@ -1,0 +1,38 @@
+# Public-demo configuration. All paths and values refer to committed synthetic fixtures.
+inputs:
+  market: market_actuals.csv
+  organization: organization_actuals.csv
+
+outputs:
+  dataset: transformed_dataset.csv
+  scenario_summary: scenario_summary.csv
+  quality_report: data_quality_report.json
+  run_summary: run_summary.txt
+
+validation:
+  tolerance: 0.000001
+
+# Synthetic portfolio rules. A zero weight means that the category appears only
+# in the full-market view and has no organization volume or revenue.
+product_rules:
+  IPG Single Chamber:
+    addressable: true
+    weight: 0.86
+  IPG Dual Chamber:
+    addressable: true
+    weight: 0.82
+  ICD Single Chamber:
+    addressable: true
+    weight: 0.78
+  ICD Dual Chamber:
+    addressable: true
+    weight: 0.80
+  CRT-D:
+    addressable: true
+    weight: 0.74
+  ICM:
+    addressable: true
+    weight: 0.65
+  Other Diagnostics:
+    addressable: false
+    weight: 0.00

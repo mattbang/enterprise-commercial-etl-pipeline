@@ -1,0 +1,11 @@
+country,quarter,business_segment,product_group,market_units,market_revenue_keur
+Belgium,25Q1,IPG,IPG Single Chamber,450,2250
+France,25Q1,IPG,IPG Dual Chamber,380,2280
+Spain,25Q2,ICD,ICD Single Chamber,520,3120
+Italy,25Q2,CRT,CRT-D,610,4270
+United Kingdom,25Q3,ICM,ICM,200,600
+Switzerland,25Q3,IPG,IPG Single Chamber,310,1860
+Portugal,25Q4,IPG,IPG Single Chamber,190,950
+Netherlands,25Q4,ICD,ICD Dual Chamber,410,2870
+Canada,26Q1,IPG,IPG Single Chamber,600,3000
+Belgium,25Q1,ICM,Other Diagnostics,120,240

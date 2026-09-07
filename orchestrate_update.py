@@ -1,3 +1,10 @@
+"""Production-reference orchestrator.
+
+This module documents the private deployment path and requires integration
+modules that are intentionally excluded from the public portfolio. Run
+``python demo.py`` for the supported, self-contained demonstration.
+"""
+
 import logging
 import sys
 import os

@@ -24,6 +24,7 @@ chrome_automation_profile/
 # Real input & output commercial spreadsheets (Keep sample/ only)
 data/in/
 data/out/
+/demo_output/
 !data/sample/
 !data/sample/*.xlsx
 !data/sample/*.csv

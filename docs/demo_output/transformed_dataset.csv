@@ -1,0 +1,29 @@
+version,country,quarter,business_segment,product_group,market_units,market_revenue_keur,org_units,org_revenue_keur,addressable_weight
+Actual Addressable,Belgium,25Q1,IPG,IPG SINGLE CHAMBER,450.00,2250.00,120,600,0.86
+Actual Addressable,Canada,26Q1,IPG,IPG SINGLE CHAMBER,600.00,3000.00,160,800,0.86
+Actual Addressable,France,25Q1,IPG,IPG DUAL CHAMBER,380.00,2280.00,95,570,0.82
+Actual Addressable,Italy,25Q2,CRT,CRT-D,610.00,4270.00,165,1155,0.74
+Actual Addressable,Netherlands,25Q4,ICD,ICD DUAL CHAMBER,410.00,2870.00,105,735,0.80
+Actual Addressable,Portugal,25Q4,IPG,IPG SINGLE CHAMBER,190.00,950.00,55,275,0.86
+Actual Addressable,Spain,25Q2,ICD,ICD SINGLE CHAMBER,520.00,3120.00,140,840,0.78
+Actual Addressable,Switzerland,25Q3,IPG,IPG SINGLE CHAMBER,310.00,1860.00,82,492,0.86
+Actual Addressable,United Kingdom,25Q3,ICM,ICM,200.00,600.00,75,225,0.65
+Actual Addressable weighted,Belgium,25Q1,IPG,IPG SINGLE CHAMBER,387.00,1935.00,120,600,0.86
+Actual Addressable weighted,Canada,26Q1,IPG,IPG SINGLE CHAMBER,516.00,2580.00,160,800,0.86
+Actual Addressable weighted,France,25Q1,IPG,IPG DUAL CHAMBER,311.60,1869.60,95,570,0.82
+Actual Addressable weighted,Italy,25Q2,CRT,CRT-D,451.40,3159.80,165,1155,0.74
+Actual Addressable weighted,Netherlands,25Q4,ICD,ICD DUAL CHAMBER,328.00,2296.00,105,735,0.80
+Actual Addressable weighted,Portugal,25Q4,IPG,IPG SINGLE CHAMBER,163.40,817.00,55,275,0.86
+Actual Addressable weighted,Spain,25Q2,ICD,ICD SINGLE CHAMBER,405.60,2433.60,140,840,0.78
+Actual Addressable weighted,Switzerland,25Q3,IPG,IPG SINGLE CHAMBER,266.60,1599.60,82,492,0.86
+Actual Addressable weighted,United Kingdom,25Q3,ICM,ICM,130.00,390.00,75,225,0.65
+Actual Full,Belgium,25Q1,IPG,IPG SINGLE CHAMBER,450.00,2250.00,120,600,0.86
+Actual Full,Belgium,25Q1,ICM,OTHER DIAGNOSTICS,120.00,240.00,0,0,0.00
+Actual Full,Canada,26Q1,IPG,IPG SINGLE CHAMBER,600.00,3000.00,160,800,0.86
+Actual Full,France,25Q1,IPG,IPG DUAL CHAMBER,380.00,2280.00,95,570,0.82
+Actual Full,Italy,25Q2,CRT,CRT-D,610.00,4270.00,165,1155,0.74
+Actual Full,Netherlands,25Q4,ICD,ICD DUAL CHAMBER,410.00,2870.00,105,735,0.80
+Actual Full,Portugal,25Q4,IPG,IPG SINGLE CHAMBER,190.00,950.00,55,275,0.86
+Actual Full,Spain,25Q2,ICD,ICD SINGLE CHAMBER,520.00,3120.00,140,840,0.78
+Actual Full,Switzerland,25Q3,IPG,IPG SINGLE CHAMBER,310.00,1860.00,82,492,0.86
+Actual Full,United Kingdom,25Q3,ICM,ICM,200.00,600.00,75,225,0.65

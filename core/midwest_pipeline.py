@@ -2124,7 +2124,7 @@ def main() -> Tuple[pd.DataFrame, Dict]:
                 "NumericQuarter": u_raw["NumericQuarter"],
                 "Market Units": u_raw["Market Units"],
                 "Market Net Revenue (in K EUR)": u_raw["Market Net Revenue (in K EUR)"],
-                # Organization values do not apply to synthetic market-only rows.
+                 # Zero out organization metrics
                 "Units": 0,
                 "Net Revenue (in K EUR)": 0,
             })

@@ -1,0 +1,4 @@
+version,rows,market_units,market_revenue_keur,org_units,org_revenue_keur
+Actual Full,10,3790.00,21440.00,997,5692
+Actual Addressable,9,3670.00,21200.00,997,5692
+Actual Addressable weighted,9,2959.60,17080.60,997,5692
