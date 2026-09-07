@@ -13,7 +13,21 @@ To serve regional finance across **9 countries**, commercial leadership required
 
 Previously, this process was performed manually: downloading raw sales, market, and forecast extracts, cleaning and standardizing varying European number formats in Excel, merging records, and hand-validating figures before Qlik Sense consumption. This manual workflow consumed **6 to 8 hours per cycle**, was vulnerable to human error, slowed the turnaround from forecast changes to updated management visuals, and created a critical single-person operational dependency.
 
-This project engineered an automated Python ETL and orchestration pipeline covering ingestion, transformation, multi-scenario financial modeling, Qlik Sense reloading, and validation. The production case study recorded execution in **under 4 minutes**, an approximately **98% reduction** from the manual baseline, helping management review updated goals, market-share movement, and performance benchmarks much closer to the forecast update cycle. The public repository demonstrates the transformation rules and blocking publication controls with synthetic data; private connectors and production services are intentionally excluded.
+This project engineered an automated Python ETL and orchestration pipeline covering ingestion, transformation, multi-scenario financial modeling, Qlik Sense reloading, and validation. The production case study records execution in **under 4 minutes**, helping management review updated goals, market-share movement, and performance benchmarks closer to the forecast update cycle. The public repository demonstrates the transformation rules and blocking publication controls with synthetic data; private connectors and production services are intentionally excluded.
+
+The orchestrator's purpose was to make the full refresh repeatable and inspectable, from changing source inputs to refreshed visuals and quality follow-up. The reported runtime and manual baseline are historical operational estimates, not a controlled benchmark. Human review, investigation, and interpretation remain part of the reporting process.
+
+## Source Decisions Behind the Result
+
+| Challenge | Design decision | Reporting consequence |
+| :--- | :--- | :--- |
+| Annual ICM market estimates and quarterly company figures | Allocate market estimates but retain the separate native-quarterly company actuals | Make market-share calculations comparable without inventing quarterly sales detail |
+| Gaps in standard market-reference coverage | Integrate separate diagnostics/ICM and supplementary market inputs | Include product categories that a single market source cannot describe |
+| Different product labels and territorial ownership | Apply explicit mappings, regional groupings, and export treatment | Align the dataset with commercial responsibility and check for omissions |
+| Changing forecasts and earlier planning targets | Preserve version labels and keep adjustments separate from source workbooks | Support variance analysis between actuals, live forecasts, and saved baselines |
+| Full and addressable market definitions | Construct three market views and test conservation | Make the opportunity definition visible when interpreting market share |
+
+Annual-to-quarter forecast allocation produces modeled values. Market views describe scope; forecast versions describe planning positions. Keeping those concepts distinct is central to making the integrated report interpretable.
 
 ---
 
@@ -21,7 +35,7 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 
 | Metric | Before (Manual Process) | After (Automated Pipeline) | Impact |
 | :--- | :--- | :--- | :--- |
-| **Forecast-to-Visual Turnaround** | 6 – 8.5 hours / update cycle | **~4 minutes reported in production** | Faster management visibility into revised goals, market share, and performance benchmarks |
+| **Forecast-to-Visual Turnaround** | Roughly 6-8 hours / update cycle, as reported in the case study | **Under 4 minutes reported in production** | Faster management visibility into revised goals, market share, and performance benchmarks |
 | **Data Ingestion & Merge** | Manual download & Excel copy-paste | Headless Selenium + Vectorized Pandas | Fully automated multi-source ingestion |
 | **Data Quality Verification** | Ad-hoc manual spot-checks | **17 checks across five quality tiers** | Blocking pre-publication failures preserve the last valid dataset; downstream mismatches fail the run |
 | **Edge Case & Regression Coverage**| Zero formal test coverage | **Self-contained public unit, stress, and demo suite** | Handles European numbers, blanks, nulls, schema failures, and publication controls |
@@ -76,8 +90,8 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 
 2. **Defense-in-Depth Quality Assurance and Blocking Publication:**
    Engineered 17 independent automated checks categorized into:
-   * **Reconciliation Checksums:** Comparing upstream raw extracts with downstream BI reporting sheets to guarantee 0 lost units or revenue.
-   * **Magnitude & Anomaly Detection:** Flagging sudden multi-factor spikes (e.g., catching European decimal vs. thousands comma bugs before production release).
+   * **Reconciliation Checksums:** Comparing source, transformed, and downstream totals within the applicable metric tolerances; aggregate agreement does not prove every row is correct.
+   * **Magnitude & Anomaly Detection:** Flagging sudden multi-factor spikes, including the class of decimal-format defect documented in the project history.
    * **Human-Error Detection:** Automatically scanning manual inputs for copy-paste duplicates, unchanged forecast baselines, and suspicious round figures.
 
 3. **Self-Contained Public Test Suite:**
@@ -92,6 +106,8 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 ---
 
 ## 💻 Technology Stack
+
+The 17-item production quality framework groups structural checks, downstream reconciliation, and review heuristics. It is not the same as the public demo's 10 checks or the pytest test count. Blocking candidate validation preserves the prior dataset; a later Qlik discrepancy can still occur after publication. The [quality matrix](PORTFOLIO_DATA_QUALITY_MATRIX.md) separates these stages and their evidence.
 
 * **Language & Core:** Python 3.10+, Pandas, NumPy, PyYAML
 * **Automation & Orchestration:** Selenium WebDriver (Persistent Browser Profile Session), Custom Orchestrator

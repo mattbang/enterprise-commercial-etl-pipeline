@@ -46,6 +46,26 @@ flowchart LR
 
 The public demo uses synthetic inputs and needs no company account or private service. See the [scope and limitations](docs/PUBLIC_DEMO_BOUNDARY.md) for the boundary between the portfolio demo and the production case study.
 
+## What Made the Integration Difficult
+
+The source systems did not describe the business at the same grain or with the same definitions. The integration needed explicit rules for which source supplied each measure, how periods and products aligned, and how earlier planning positions remained comparable with current forecasts.
+
+| Source or reporting constraint | Integration decision | Value to the reporting user |
+| :--- | :--- | :--- |
+| Annual diagnostics/ICM market estimates and quarterly company actuals | Allocate annual market estimates to quarters while using a separate native-quarterly company feed | Preserve available sales detail while making the market denominator comparable |
+| Product categories missing from standard market references | Combine separate diagnostics/ICM and supplementary addressable-market inputs with the main market data | Extend portfolio coverage beyond the categories available from a single source |
+| Live forecasts, saved planning baselines, and local corrections | Keep forecast versions identifiable and apply explicit adjustment inputs | Compare revised expectations with an earlier planning position without editing the original source workbook |
+| Product labels and commercial territory ownership differ across sources | Normalize product mappings, regional groupings, and export treatment | Compare figures under consistent reporting responsibility and detect records lost in integration |
+| Conflicting European, US, and Swiss number formats | Parse against source conventions and reconcile the resulting totals | Address defects such as the documented 1,000-fold forecast inflation caused by decimal interpretation |
+
+The three **market views** and the **forecast versions** answer different questions. Full, Addressable, and Weighted views change the market definition used to assess opportunity. Live and saved forecast versions distinguish planning positions over time. Allocating an annual forecast to quarters makes it comparable with quarterly actuals; it does not turn the allocation into observed sales.
+
+## The Orchestrator's Role
+
+The orchestrator makes the reporting cycle repeatable: acquire and prepare sources, run the transformations, check publication readiness, trigger Qlik reload, collect current-run verification evidence, reconcile results, and prepare quality reports and summary notifications. Its purpose is to shorten the path from a forecast update to a dashboard that finance can review with supporting evidence.
+
+The public [production-reference orchestrator](orchestrate_update.py) distinguishes blocking readiness checks before reload from verification after reload. The shared [publication controls](core/publication_control.py) reject failed QA reports before replacing a dataset. Controller drafts support analyst follow-up on suspect assumptions; they are not automatic approval of a forecast or independent dispatch to each regional controller.
+
 ## Public Demo Result
 
 The sample run preserves **997 organization units** and **5,692 K EUR in synthetic organization revenue** across all three scenarios. Only the market denominator and weighting change.

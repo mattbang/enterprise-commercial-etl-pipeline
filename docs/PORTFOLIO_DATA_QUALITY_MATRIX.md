@@ -1,118 +1,71 @@
-# Multi-Layer Data Quality & Governance Framework
-**Document Type:** Technical Architecture & Quality Assurance Specification
-**Domain:** Commercial Healthcare & MedTech Data Engineering
-**System:** Automated Multi-Source Financial & Market ETL Pipeline
+# Data Quality and Reconciliation
 
-> *Confidentiality Notice: Organization identity, internal portal URLs, proprietary product identifiers, and commercial volumes have been anonymized or normalized for portfolio presentation while strictly preserving authentic technical architecture and business logic.*
+The reporting workflow checks data before publication and reconciles downstream evidence after Qlik reloads. These stages address different risks. A failed candidate can be blocked locally; a discrepancy found after reload may already have affected the dashboard.
 
----
+The production case study describes a **17-item quality framework**. The public demo has **10 checks** against synthetic inputs. Neither count is the pytest test count, and the public demo does not reproduce all private production-source checks.
 
-## 🛡️ Architecture Overview: Defense-in-Depth
+## Publicly Inspectable Controls
 
-In enterprise commercial reporting, silent data corruption is catastrophic: executive decisions, territorial sales quotas, and revenue forecasts depend on accurate market data. Traditional ETL pipelines often rely on passive failure handling (e.g., throwing a Python exception only if a script crashes).
+| Control | Evidence | Behavior |
+| --- | --- | --- |
+| Source contracts, mappings, bounds, and conservation | [Demo validator](../core/validator.py), [demo tests](../tests/test_demo.py), and [sample report](demo_output/data_quality_report.json) | A failed demo candidate writes failure evidence and publishes no CSV outputs |
+| Blocking QA report | [Publication helper](../core/publication_control.py) | Rejects failed, missing-pass, or internally inconsistent report status before writing a candidate dataset |
+| Prior-dataset preservation | [Publication tests](../tests/test_publication_control.py) | A candidate rejected by validation leaves the existing published dataset untouched |
+| Atomic file replacement | [Publication helper](../core/publication_control.py) | Uses a temporary sibling and replacement for each destination; does not provide a multi-file or BI transaction |
+| Current-run readiness | [Production-reference orchestrator](../orchestrate_update.py) | Requires current candidate and passing QA artifacts before triggering reload |
+| Downstream freshness and terminal status | [Orchestrator](../orchestrate_update.py) and [status helpers](../core/publication_control.py) | Missing or stale verification produces `UNVERIFIED`; reported validation failures produce `FAILED` |
 
-This pipeline implements an active **5-Tier Defense-in-Depth Data Quality Framework** featuring **17 automated checks**. Structural and reconciliation checks are blocking: a failed candidate is not published and the last valid dataset remains in place. Cloud verification runs after reload and produces a separate `SUCCESS`, `FAILED`, or `UNVERIFIED` terminal state.
+The reference orchestrator depends on unpublished integrations. Public tests demonstrate the shared controls and modeled behavior; they do not establish that a live tenant or private connector currently behaves correctly.
 
-```
- RAW EXTERNAL EXTRACTS (CRM, Forecasts, Registries, Ad-hoc Files)
-                           │
-                           ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │ TIER 1: Ingestion & File Health                                  │  Check 1
- │ • File freshness, zero-byte locks, I/O validation                │
- └─────────────────────────┬────────────────────────────────────────┘
-                           │ Passed
-                           ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │ TIER 2: Schema Conformance & Dimensional Completeness            │  Checks 2, 8
- │ • Pandera type coercion, primary key integrity, null-rate caps   │
- └─────────────────────────┬────────────────────────────────────────┘
-                           │ Passed
-                           ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │ TIER 3: Pre-Publication Reconciliation (Conservation Laws)       │  Checks 3, 4, 5, 6
- │ • Unit/revenue conservation and country preservation             │
- └─────────────────────────┬────────────────────────────────────────┘
-                           │ Passed
-                           ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │ TIER 4: Statistical Plausibility & Outlier Detection             │  Checks 7, 10, 14, 15, 17
- │ • 10x magnitude spike catchers, negative units, velocity jumps   │
- └─────────────────────────┬────────────────────────────────────────┘
-                           │ Passed
-                           ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │ TIER 5: Human-Error & Field Heuristics (Local Governance)        │  Checks 11, 12, 13, 16
- │ • Copy-paste inertia, round placeholder numbers, missing gaps    │
- └─────────────────────────┬────────────────────────────────────────┘
-                           │
-            ┌──────────────┴──────────────┐
-            ▼                             ▼
- [Blocking Gates Clean]         [Soft Anomalies Flagged]
- Publish + Cloud Reload          Local Review Drafts Generated
- Check 9: Fresh BI Verification for Regional Financial Controllers
-```
+## Production Quality Framework
 
----
+The numbering below retains the case study's checklist. It groups structural controls, post-reload reconciliation, and review heuristics rather than describing 17 sequential blocking stages. Detailed source-specific thresholds depend on the production implementation and metric units.
 
-## 📋 The 17-Point Controls & Checks Matrix
+| # | Check | Purpose and role |
+| --- | --- | --- |
+| 1 | Output presence and freshness | Identify absent, empty, or stale candidate artifacts before accepting them for use |
+| 2 | Column and dimension completeness | Detect missing source, version, country, and product assignments |
+| 3 | Country-level preservation | Identify losses or misallocation across reporting territories |
+| 4 | Commercial actuals reconciliation | Compare source and transformed company and market contributions |
+| 5 | Diagnostics/ICM reconciliation | Preserve annual market totals while retaining separate quarterly company figures |
+| 6 | Cross-scenario consistency | Check the intended organization-total invariants across market views |
+| 7 | Forecast magnitude comparison | Detect implausible live-versus-baseline differences, including possible parsing defects |
+| 8 | Row-count sanity | Identify unexpectedly truncated or filtered datasets |
+| 9 | Qlik checksum comparison | After reload, compare downstream aggregates with the expected dataset; missing current-run evidence is distinct from a mismatch |
+| 10 | Negative-unit review | Distinguish suspicious negatives from documented returns or other permitted adjustments |
+| 11 | Repeated forecast values | Flag possible copying across planning periods for review |
+| 12 | Round-number patterns | Flag potential placeholders without assuming that every round forecast is invalid |
+| 13 | Unchanged baseline | Identify forecasts that duplicate a historical reference |
+| 14 | Quarter-over-quarter changes | Surface unusually abrupt movements for review |
+| 15 | Year-over-year changes | Surface unusual annual changes in the reporting context |
+| 16 | Time-series gaps | Identify missing periods in expected sequences |
+| 17 | Stale reporting periods | Flag sources whose latest period lags the expected reporting horizon |
 
-| # | Check Name | Target Tier | Enforcement Level | Verification Mechanism | Real Failure Case Prevented |
-|---|:---|:---:|:---:|:---|:---|
-| **1** | **Pipeline Outputs & File Freshness** | Tier 1 | 🔴 **Critical Block** | Validates filesystem write timestamps & non-zero byte size for all output CSVs and master tables. | Catches silent disk-full errors or operating system file locks before downstream consumers poll. |
-| **2** | **Column Completeness & Dimension Integrity** | Tier 2 | 🔴 **Critical Block** | Enforces strict maximum missing-value thresholds on core dimensions: `SOURCE` (0%), `Version` (0%), `Country Code` (<1%), `Product Group` (<1%). | Prevented unmapped records where Belgium sales figures entered the system without country keys. |
-| **3** | **Country-Level Preservation** | Tier 3 | 🔴 **Critical Block** | Reconciles unit conservation per country code ($Units_{in} = Units_{out}$) across all transformations. | Discovered a subtle join filter that dropped overseas export territories and regional Ireland entities. |
-| **4** | **Commercial Source Reconciliation (CRM/Actuals)** | Tier 3 | 🔴 **Critical Block** | Cross-validates source CRM input units against pipeline output units with absolute tolerance $\le 10$ units (rounding). | Prevents data loss during product reclassification and business unit exclusions. |
-| **5** | **Diagnostics Source Reconciliation (Registry)** | Tier 3 | 🔴 **Critical Block** | Validates dual-feed inputs (quarterly organization figures + annual market estimates) against final disaggregated tables. | Ensures disaggregation algorithms correctly preserve total annual market volumes. |
-| **6** | **Cross-Scenario Internal Consistency** | Tier 3 | 🔴 **Critical Block** | Cross-checks company units across all 3 reporting views (*Full Market*, *Addressable Market*, *Addressable Weighted*). | Enforces that organization baseline performance remains strictly identical across scenario models. |
-| **7** | **Magnitude Spike & Formatting Outlier Check** | Tier 4 | 🔴 **Critical Block** | Compares Live vs. Static forecast ratios per year/country/product; flags any ratio $>10\times$. | **Caught a 1,000x volume inflation bug** caused by European comma vs. US period decimal string parsing. |
-| **8** | **Minimum Row-Count Sanity Gate** | Tier 2 | 🔴 **Critical Block** | Enforces conservative minimum row thresholds per source and scenario (e.g., CRM Addressable $\ge 5,000$ rows). | Instantly halts the pipeline if a source file is truncated or an upstream filter drops an entire product family. |
-| **9** | **End-to-End Qlik Sense Checksum** | Tier 3 | 🔴 **Post-Reload Failure Gate** | Accepts only a current-run Qlik Sense export, then compares aggregate totals against the validated Python master CSV ($Tolerance < 1.0\text{ EUR}$). Missing or stale evidence produces `UNVERIFIED`; a checksum mismatch produces `FAILED`. | Catches Qlik load-script formula bugs, server-side reload timeouts, partial app cache corruption, and stale verification reuse. |
-| **10** | **Negative Unit Threshold & Whitelist** | Tier 4 | 🔴 **Critical Block** | Flags any net unit value $< -100$; filters against an audited whitelist of verified accounting reversals (returns/EOL). | Catches formula inversion bugs in manual adjustment spreadsheets. |
-| **11** | **Forecast Copy-Paste Detection** | Tier 5 | 🟡 **Warning Alert** | Scans multi-year forward projections for identical organization and market units across consecutive planning years. | Identifies field analysts who duplicated previous year forecasts without updating planning assumptions. |
-| **12** | **Suspicious Round-Number Heuristics** | Tier 5 | 🟡 **Warning Alert** | Detects forecast figures rounded to exact hundreds/thousands when historical actuals exhibit organic variance. | Flags unrefined placeholder numbers entered by regional planning teams prior to finalized reviews. |
-| **13** | **Unchanged Forecast Baseline Detection** | Tier 5 | 🟡 **Warning Alert** | Flags instances where forward-looking forecast inputs exactly equal prior-year historical actuals. | Catches regional submissions where the planning period was rolled over without analysis. |
-| **14** | **Quarter-over-Quarter (QoQ) Velocity Jump** | Tier 4 | 🟡 **Warning Alert** | Identifies non-seasonal quarter-to-quarter unit changes exceeding $+50\%$ or $-50\%$. | Flags unexpected regional demand spikes or misallocated bulk orders before executive presentation. |
-| **15** | **Year-over-Year (YoY) Velocity Jump** | Tier 4 | 🟡 **Warning Alert** | Flags multi-period trends where annual volume expands $>100\%$ without a corresponding product launch. | Detects structural market definition shifts or misclassified competitor movements. |
-| **16** | **Time-Series Sequence Gap Detection** | Tier 5 | 🟡 **Warning Alert** | Analyzes quarterly sequences per country/therapy; verifies continuous chronological progression without omitted quarters. | Catches missing quarterly entries in regional field spreadsheets. |
-| **17** | **Data Stagnation & Stale Sequence Gate** | Tier 4 | 🟡 **Warning Alert** | Verifies that the most recent available quarter is not $>2$ quarters behind the current execution date. | Alerts operations when upstream reporting teams fail to publish their quarterly data packages. |
+Checks 11-17 describe review heuristics. A flagged assumption can be commercially valid and still deserve discussion. Counting these as universal publication blockers would misstate their role.
 
----
+## Reconciliation Limits
 
-## 🔍 Deep-Dive: Real-World Engineering Failure Modes Prevented
+Source-to-output and output-to-Qlik comparisons check different parts of the reporting chain. Aggregate agreement is useful evidence but cannot prove that every row, product, country, and period is correct. Dimensional and source-specific checks provide complementary coverage.
 
-### Case 1: The "European Decimal 1,000x Inflation Bug" (Check #7)
-* **The Root Cause:** In German and French operating extracts, numbers are formatted with period thousand separators and comma decimals (e.g., `1.234,50`). In US-formatted extracts, commas represent thousands (e.g., `1,234.50`). A single-separator value such as `1,500` is intrinsically ambiguous without a source-format contract; blindly removing the comma can turn a decimal-intended value into a **1,000x inflation**.
-* **The Governance Gate:** Check #7 evaluates the ratio between Live forecast submissions and verified Static planning baselines for every `(Year, Country, Product)` tuple.
-* **The Blocking Gate:** When the ratio hit `1000.0x`, Check #7 failed the candidate, generated an alert, and blocked the Qlik Sense reload. The shared `num_smart()` parser now validates grouping, handles mixed and apostrophe formats, and rejects ambiguous single separators unless the source explicitly supplies decimal or thousands policy.
+A comparison tolerance must name the metric and its units. The public production-reference orchestrator delegates downstream comparisons to a private helper, so it does not establish a universal one-euro checksum tolerance. Revenue expressed in thousands of euros must not be described as though its numeric tolerance were denominated in euros.
 
-### Case 2: Silent Data Drop in Overseas Territories (Check #3)
-* **The Root Cause:** During an ETL migration, a SQL-like merge condition `on=['COUNTRY_CODE']` dropped 13 export territories (e.g., French Overseas Departments and regional distributor codes) because the secondary lookup table only listed sovereign European nations.
-* **The Governance Gate:** Check #3 calculates a country-by-country unit conservation hash before and after the pipeline transformation.
-* **The Blocking Gate:** The system flagged an 8.4% unit mismatch in the French commercial entity. The pipeline halted, allowing developers to implement a dedicated territorial alias dictionary in `config/mappings.yaml` without publishing flawed market-share figures.
+The reference orchestrator waits after triggering reload and polls for current-run verification output; it does not receive a server completion token itself. Fresh evidence is a prerequisite for proceeding to downstream checks, not a substitute for those comparisons.
 
----
+## Lessons from Source Problems
 
-## 📬 Automated Field Governance: Controller Review Drafts
+**European decimal parsing.** The project history records a 1,000-fold forecast inflation defect. A value such as `1,500` is ambiguous without a source-format policy: removing the comma can turn an intended decimal into a much larger value. The [shared parser](../core/utils.py) validates grouping and requires an explicit policy for ambiguous separators. This supports the defect class and its correction, without claiming that every historical affected refresh was blocked before publication.
 
-To eliminate manual email coordination when field data quality warnings occur (Checks #11 through #17), the validation engine automatically constructs **pre-formatted, responsive HTML review drafts** saved to:
-`controller_drafts/{Country_Code}_data_review.html`
+**Territory preservation.** Regional groupings and export ownership require explicit mappings beyond a sovereign-country lookup. Country-level reconciliation helps expose records lost or assigned to the wrong reporting entity. The case study does not rely on an unverified exact loss percentage or a specific join-level incident reconstruction.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ SUBJECT: Automated Data Review Notice: [Country] Q1 Planning Baselines │
-│                                                                        │
-│ Dear Financial Controller,                                             │
-│                                                                        │
-│ The automated quality engine flagged the following items in your       │
-│ latest submission:                                                     │
-│                                                                        │
-│  • Therapy Line B: Unchanged forecast identical to 2024 Actuals (Check 13)
-│  • Therapy Line D: Suspicious round value (500 units) entered (Check 12)│
-│                                                                        │
-│ Please confirm if these entries reflect intentional projections or     │
-│ submit an adjustment before the final dashboard freeze at 17:00 CET.   │
-└────────────────────────────────────────────────────────────────────────┘
-```
+**Quarterly company figures.** Separate native-quarterly ICM company actuals addressed update-reliability problems in the company portion of an annual market feed. Choosing the appropriate source for each measure was itself a quality decision, alongside the subsequent arithmetic checks.
 
-This automates the loop between **data engineering** and **commercial business controllers**, transforming the pipeline from a passive data mover into an active corporate governance engine.
+## Controller Review
+
+The production workflow generates country-specific HTML drafts from significant plausibility findings and includes available reports in the configured summary notification. An analyst reviews the evidence and decides what to raise with regional controllers. The public demo does not send notifications or exercise those private report generators.
+
+## Further Reading
+
+- [Project overview](../README.md)
+- [Technical showcase](PORTFOLIO_TECHNICAL_CAPABILITY_SHOWCASE.md)
+- [Public demo boundary](PUBLIC_DEMO_BOUNDARY.md)
+- [Controlled failure output](demo_output/failure_example/data_quality_report.json)

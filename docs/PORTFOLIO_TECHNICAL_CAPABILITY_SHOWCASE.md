@@ -1,167 +1,75 @@
-# Functionality & Technical Capability Showcase
-**Document Type:** Technical Architecture & Feature Specification
-**Domain:** Commercial Healthcare & MedTech Data Engineering
-**System:** Enterprise Multi-Source Financial & Market ETL Pipeline
+# Technical Capability Showcase
 
-> *Confidentiality Notice: Organization identity, internal portal URLs, proprietary product identifiers, and commercial volumes have been anonymized or normalized for portfolio presentation while strictly preserving authentic technical architecture and business logic.*
+This project combines source-specific commercial modeling with an orchestrated Qlik reporting workflow. The public repository exposes transformation and publication controls through a synthetic demo; private acquisition, reload, and notification connectors are excluded.
 
----
+## Capability Map
 
-## 🌟 Capability Matrix at a Glance
+| Capability | Reporting problem addressed | Inspectable evidence |
+| --- | --- | --- |
+| Reporting orchestration | Acquisition, processing, reload, checks, and follow-up need one run sequence | [Production-reference orchestrator](../orchestrate_update.py) |
+| Multi-scenario modeling | Finance needs full, addressable, and weighted opportunity views | [Public demo](../demo.py), [core pipeline](../core/midwest_pipeline.py), and [demo outputs](DEMO_OUTPUT_WALKTHROUGH.md) |
+| Numeric normalization | Conflicting decimal and thousands separators can change magnitudes silently | [Shared parser](../core/utils.py) and [parser tests](../tests/test_numeric_parser.py) |
+| Publication controls | A failed candidate must not replace the last valid dataset | [Publication helper](../core/publication_control.py) and [control tests](../tests/test_publication_control.py) |
+| Source reconciliation | Matching schemas do not establish conservation or correct mappings | [Validation logic](../core/validator.py) and [demo tests](../tests/test_demo.py) |
+| Repeatable review | Portfolio visitors need a runnable example without company access | [Public demo boundary](PUBLIC_DEMO_BOUNDARY.md) and [CI workflow](../.github/workflows/ci.yml) |
 
-| # | Technical Capability | Real-World Business Problem Solved | Engineering Implementation | Tech Stack |
-|---|:---|:---|:---|:---|
-| **1** | **Dynamic Multi-Scenario Modeling** | Business requires 3 different strategic views of market share without manual Excel pivot models. | Vectorized quarterly disaggregation and synthetic row generation conserving organization volume. | Pandas, NumPy |
-| **2** | **Headless Authenticated Ingestion Engine** | Upstream enterprise portals lack public REST APIs; require authenticated browser downloads. | Headless Selenium automation with persistent user profile, auto-wait conditions, and retry loops. | Selenium, Chrome WebDriver |
-| **3** | **Heterogeneous EU/US Numeric Normalizer** | Source files mix European comma decimals (`1.234,50`), US dots (`1,234.50`), and apostrophe separators (`1'234`). | Validated locale-aware parser with explicit handling for ambiguous single separators. | Python regex, Custom Parser |
-| **4** | **Closed-Loop Qlik Sense Orchestration** | Triggering BI reloads blindly risks dashboards displaying corrupted or incomplete loads. | Two-way handshake: triggers Qlik Sense reload, polls verification tables, and validates against CSV. | Qlik Sense, REST/DOM Polling |
-| **5** | **Field Governance Email Generator** | Manually emailing 8 regional controllers about input data anomalies takes hours of back-and-forth. | Automatic compilation of anomaly logs into localized, ready-to-forward responsive HTML email drafts. | Jinja2/HTML templates, SMTP |
-| **6** | **Synthetic Stress Harness** | Silent regressions occur when upstream systems tweak column names or insert unexpected nulls. | Self-contained pytest suite generates temporary corrupted spreadsheets and tests parser, schema, mapping, publication, and demo behavior. | Pytest, Pandera Schemas |
+## Modeling Sources at Different Grains
 
----
+The production workflow combines SAP sales actuals, MedTech Europe market references where available, separate diagnostics/ICM inputs, Salesforce-entered updates, and internally maintained sales and market-share forecasts. These are source-system roles; they do not imply that each source used a direct API connector.
 
-## 🔬 Feature Deep-Dives
+An important source decision was to use separate native-quarterly ICM company figures while allocating annual ICM market estimates to quarters. The annual market feed's company figures had update-reliability issues. Separating those sources preserved better sales detail while providing a comparable market denominator.
 
-### 1. Dynamic Multi-Scenario Commercial Modeling Engine
+Forecast integration also required product mapping, regional and export treatment, saved planning versions, explicit adjustments, and annual-to-quarter allocation. These production capabilities provide context for the reporting model; the public two-source demo does not reproduce every private forecast-integration path.
 
-#### The Challenge
-Executive leadership and regional country managers evaluate commercial performance through three distinct analytical lenses:
-1. **Full Market View:** Total estimated procedure volumes across all competitor product categories.
-2. **Addressable Market View:** Market volume filtered exclusively to clinical sub-segments where the organization offers competitive devices.
-3. **Addressable Weighted Market View:** Segment volumes adjusted by proprietary weighting factors to reflect addressable clinical opportunity.
+The three actual-market views and forecast versions are separate dimensions. Full, Addressable, and Weighted views describe market scope. Live and saved forecasts describe planning positions. Allocated forecast quarters are modeled values, not observed quarterly sales.
 
-Manually maintaining three separate versions of quarterly reports previously required dozens of nested Excel formulas, creating high operational fragility.
+The public demo checks organization-unit and revenue conservation across its three scenarios. Its [output walkthrough](DEMO_OUTPUT_WALKTHROUGH.md) shows retained organization totals and changing market denominators. This demonstrates the synthetic model's invariant; it should not be generalized to every revenue measure in every historical production view.
 
-#### The Solution (`core/midwest_pipeline.py`)
-The pipeline loads raw actuals and external quarterly estimates, applies specialized clinical product splits (e.g., separating single-chamber from dual-chamber leadless lines), and automatically synthesizes all three reporting scenarios within a unified dataset:
+## Numeric and Dimensional Normalization
 
-```
-[SAP Actuals] + [Market Sources] + [Salesforce Updates] + [Forecast Plans]
-                              │
-                              ▼
-        ┌───────────────────────────────────────────┐
-        │  Vectorized Disaggregation & Split Engine │
-        └─────────────────────┬─────────────────────┘
-                              │
-     ┌────────────────────────┼────────────────────────┐
-     ▼                        ▼                        ▼
-[Actual Full]       [Actual Addressable]   [Addressable Weighted]
-Total market size   Filtered to company    Weighted segment
-for macro strategy  competitive scope      commercial index
-     │                        │                        │
-     └────────────────────────┼────────────────────────┘
-                              ▼
-        Conserved Unit Check: $Units_{BIO}$ identical across all 3
-```
-
-* **Conservation Law Enforcement:** An automated mathematical guard guarantees that while the market denominator shifts according to the scenario, organization revenue and unit totals remain strictly identical across all three views.
-
----
-
-### 2. Resilient Headless Ingestion & Session Management
-
-#### The Challenge
-Data feeds originated from SAP sales downloads, MedTech Europe market reference files where available, separate diagnostics/ICM market inputs for product families not reported by MedTech Europe, Salesforce-entered employee forecast updates, and internally maintained sales forecast and market-share forecast inputs. The forecasting process was led by the pipeline owner during the production period and served regional finance reporting across 9 countries. Private source connectors are excluded from the public repository, and the exact diagnostics/ICM source name is intentionally omitted in the public case study.
-
-#### The Solution (`integration/downloaders/`)
-Built an enterprise-grade web scraping and file ingestion layer using **Selenium WebDriver**:
-* **Persistent Browser Profile:** Operates using an encrypted, persistent Chrome user data directory (`chrome_profile_path`), reducing repeated interactive sign-in prompts while keeping session handling configurable.
-* **Intelligent Polling & Mutex Locks:** Instead of arbitrary sleep timers, the downloader monitors filesystem events in the OS download directory, detecting `.crdownload` temporary files and verifying file size stability before proceeding.
-* **Self-Healing Process Recovery:** Automated teardown logic detects and terminates orphan background `chrome.exe` zombie processes before launching new runs, eliminating deadlocks on shared workstations.
-
----
-
-### 3. European Heterogeneous Numeric & Dimensional Parser
-
-#### The Challenge
-The pipeline ingests extracts originating from subsidiaries across Germany, France, the UK, and the Netherlands. Spreadsheets arrive with conflicting numerical conventions:
-* German extracts: `6.170,00` (comma decimal, period thousand)
-* US/UK extracts: `6,170.00` (period decimal, comma thousand)
-* Swiss/Nordic formats: `6'170.00` (apostrophe thousand separator)
-* Accounting placeholders: `-`, `--`, `N/A`, ` ` (whitespace)
-
-#### The Solution (`core/utils.py` and `num_smart()`)
-The parser validates grouping patterns before conversion and fails closed when punctuation alone cannot establish the intended value:
+The shared parser validates grouping patterns and requires an explicit policy for ambiguous single separators:
 
 ```python
 num_smart("1.234,56")                         # 1234.56
 num_smart("1,234.56")                         # 1234.56
 num_smart("6'170.00")                         # 6170.0
 num_smart("1,234")                            # NaN: ambiguous
-num_smart("1,234", ambiguous="thousands")    # 1234.0
-num_smart("1,234", ambiguous="decimal")      # 1.234
+num_smart("1,234", ambiguous="thousands")     # 1234.0
+num_smart("1,234", ambiguous="decimal")       # 1.234
 ```
 
-Repeated grouping separators such as `1,234,567` are recognized as thousands groups. A value such as `3031.065` remains a decimal because its four-digit leading group cannot be valid thousands notation.
+The project history records a 1,000-fold forecast inflation defect involving European decimal interpretation. Parsing rules and magnitude comparisons address different parts of that risk: a successful numeric conversion alone does not establish the intended value.
 
-* **Dimensional Normalization:** Automatically reconciles country code aliases (`UK` &rarr; `GB`, `EL` &rarr; `GR`) and remaps 13 non-sovereign export territories into their legal standard parent entities.
+Territory mappings also encode reporting ownership. Regional groupings and export assignments cannot always be resolved with a standard country-name lookup. Source and country-level reconciliation help detect omissions or misallocation during integration.
 
----
+## Authenticated Acquisition
 
-### 4. Closed-Loop Qlik Sense Orchestration & Post-Reload Reconciliation
+The private workflow used Selenium browser automation and configured Chrome-profile support to acquire extracts and trigger Qlik actions. Persistent profiles reduce repeated sign-in prompts; session validity still depends on the environment and authentication policies.
 
-#### The Challenge
-Traditional data pipelines push data into a BI platform and terminate. In this production case, Qlik Sense dashboards served regional finance and management users who used the visuals for goal setting, market-share review, and performance benchmarking. If the BI engine experienced an indexing failure, memory exhaustion, or load-script syntax issue, dashboards could silently display stale or partial data.
+Those connectors are not included in the public repository. Browser authentication, download-completion handling, and reload behavior are outside the public demo's verification scope. No claim is made here of filesystem mutex locks, automatic orphan-process recovery, a guaranteed session duration, or a REST-based reload implementation.
 
-#### The Solution (`integration/helpers/reload_helpers.py` & `validation_helpers.py`)
-Implemented a **blocking publication gate followed by a two-way verification handshake**:
+## Publication and Downstream Verification
 
-```
-[Candidate Dataset] -> [Blocking QA]
-       | failed              | passed
-       v                     v
-[Retain Prior Dataset]  [Atomic Publication] -> [Qlik Sense Reload]
-                                                  |
-                                                  v
-                                      [Current-Run Verification]
-                                         |       |       |
-                                      match   mismatch  stale/missing
-                                         |       |       |
-                                         v       v       v
-                                      SUCCESS  FAILED  UNVERIFIED
-                                      exit 0   exit 1    exit 2
-```
+The [publication helper](../core/publication_control.py) persists QA evidence, rejects failed or inconsistent reports, and replaces each destination CSV using an atomic file operation. Atomic replacement applies to each file; it is not a transaction spanning multiple destinations and Qlik.
 
-1. **Blocking Publication:** The current QA report must pass before the candidate replaces the published CSV or triggers a cloud reload.
-2. **Trigger and Acknowledgment:** The orchestrator dispatches the reload and waits for server-side processing.
-3. **Fresh Verification Extraction:** The current run must produce `MarketData_Add_Final_Qlik_Verified.csv`; stale files are not copied as fallback evidence.
-4. **End-to-End Cross-Check:** A difference above **€1.00** fails the run, while missing current-run evidence marks it `UNVERIFIED`.
+The production-reference orchestrator checks current-run candidate and QA artifacts before reload. After triggering reload, it waits for the configured interval and polls for fresh verification output. Missing or stale evidence produces `UNVERIFIED` (exit 2); returned validation failures produce `FAILED` (exit 1), and verified success uses exit 0. The orchestrator does not itself poll a Qlik server completion token.
 
----
+The downstream comparison implementation is private. Its metric units and tolerances must be established by that connector's contract; the public reference code does not establish a universal one-euro tolerance. Post-reload reconciliation can detect discrepancies after publication, so it does not guarantee that a later BI discrepancy was never visible.
 
-### 5. Automated Field Governance: Local Controller Email Generator
+## Quality Reports and Human Review
 
-#### The Challenge
-When regional sales teams and employees submit quarterly sales and market-share forecast updates, including manual Salesforce updates, errors inevitably slip in (e.g., duplicated past-year numbers, unrefined placeholder numbers like `500`, or missing quarters). Tracking down finance controllers across 9 countries required days of manual email drafting.
+The production-reference workflow calls private helpers to generate plausibility reports and country-specific HTML controller drafts, then attaches available artifacts to the configured summary. Drafts support analyst review and follow-up; generating them is different from independently sending each controller a message or accepting a forecast as correct.
 
-#### The Solution
-When the plausibility validation engine flags anomalies, it dynamically renders **tailored, responsive HTML email drafts** per country code (`controller_drafts/{Country_Code}_data_review.html`):
-* Aggregates country-specific warnings into an intuitive bulleted list.
-* Pre-populates the controller's email address and submission deadline.
-* Formats tables with highlighted cells showing flagged values vs. historical benchmarks.
-* Ready for the central analyst to review and forward with a single click.
+Forecast review focuses on patterns such as unchanged baselines, suspiciously round inputs, gaps, and abrupt changes. These are investigation prompts, not automatic judgments that a commercial assumption is wrong.
 
----
+## Testing and Reproducibility
 
-### 6. Synthetic Stress Testing
+The public pytest suite covers numeric parsing, mappings, schemas, scenario behavior, publication blocking, terminal statuses, and the synthetic demo. Temporary fixtures exercise malformed inputs. Checks requiring excluded connectors or production artifacts skip explicitly when those dependencies are absent.
 
-#### The Challenge
-Data pipelines frequently fail when exposed to real-world edge cases that were never observed during development.
+Use [the README's demo and test commands](../README.md) for the supported workflow. A passing public run validates the covered local behavior; it does not verify authentication, a live Qlik tenant, or the historical four-minute production runtime.
 
-#### The Solution (`tests/test_stress_pipeline.py`)
-Engineered a comprehensive stress testing framework that synthesizes intentionally corrupted datasets to validate system resilience:
+## Further Reading
 
-```
-                  ┌──────────────────────────────────────────────┐
-                  │          SYNTHETIC CORRUPTION SUITE          │
-                  └──────────────────────┬───────────────────────┘
-                                         │
-     ┌───────────────────┬───────────────┴───────────────┬───────────────────┐
-     ▼                   ▼                               ▼                   ▼
-[Corrupted Types]   [Delimiter Chaos]           [Schema Breakers]     [Clinical Anomalies]
-`"1'234"`, `"N/A"`, Mixed dots & commas,        Duplicate headers,    Zero market units with
-`"--"`, all-NaN rows trailing whitespace        omitted columns       positive organization sales
-```
-
-* **Reproducible public suite:** Validates numeric parsing, quarter parsing, mappings, schema enforcement, data loaders, publication blocking, terminal statuses, and end-to-end demo behavior.
-* **Hermetic fixtures:** Generated workbooks live in pytest temporary directories and do not leave commercial-looking artifacts in the repository.
+- [Executive case study](PORTFOLIO_EXECUTIVE_CASE_STUDY.md)
+- [Quality matrix](PORTFOLIO_DATA_QUALITY_MATRIX.md)
+- [Public demo boundary](PUBLIC_DEMO_BOUNDARY.md)
