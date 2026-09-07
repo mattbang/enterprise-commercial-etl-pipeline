@@ -7,52 +7,56 @@
 
 ---
 
-## 🗺️ High-Level Orchestration Flow
+## High-Level Orchestration Flow
 
-The top-level orchestration model links four operational lanes. The Mermaid sequence below reflects the current control order; the editable BPMN source contains the corresponding collapsed sub-processes.
+The top-level orchestration model links four operational lanes. The editable BPMN source contains the collapsed sub-processes, and the exported PNG below is the current portfolio-safe rendering.
+
+![Portfolio-safe commercial ETL orchestration BPMN export](pipeline_orchestration.png)
+
+The Mermaid sequence below is a lightweight text fallback for environments that do not display BPMN images.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Op as Operator / Scheduler
-    participant Orch as Master Orchestrator (Python)
-    participant DL as Headless Ingestion (Selenium + Auth)
-    participant BI as Qlik Cloud Engine
-    actor Ctrl as Regional Controllers
+    actor Op as Operator Scheduler
+    participant Orch as Master Orchestrator
+    participant DL as Ingestion Layer
+    participant BI as Cloud BI Platform
+    actor Ctrl as Controllers
 
     %% 1. Pre-Flight
-    Op->>Orch: Trigger Run (python orchestrate_update.py)
+    Op->>Orch: Trigger run
     activate Orch
-    Note over Orch: Sub-Process 1: Pre-Flight Environment & Lock Validation
+    Note over Orch: Sub-process 1 - pre-flight config and locks
 
     %% 2. Ingestion
-    Orch->>DL: Sub-Process 2: Headless Multi-Source Ingestion (Selenium)
+    Orch->>DL: Sub-process 2 - ingest source exports
     activate DL
-    DL-->>Orch: Staged 4 Raw Feeds in data/in/ (~140s)
+    DL-->>Orch: Raw feeds staged in data/in
     deactivate DL
 
     %% 3-4. Candidate transformation and blocking validation
-    Note over Orch: Sub-Process 3: Build candidate and 3 scenarios
-    Orch->>Orch: Sub-Process 4: Run blocking pre-publication checks
+    Note over Orch: Sub-process 3 - transform candidate data
+    Orch->>Orch: Sub-process 4 - blocking quality gates
     alt Blocking validation fails
-        Orch-->>Op: FAILED (exit 1); retain last valid dataset
+        Orch-->>Op: FAILED exit 1; retain last valid dataset
     else Candidate passes
-        Orch->>Orch: Atomically publish validated CSV
-        Orch->>BI: Sub-Process 5: Reload cloud BI model
+        Orch->>Orch: Publish validated CSV atomically
+        Orch->>BI: Sub-process 5 - reload BI and export proof
         activate BI
-        BI-->>Orch: Export current-run verification CSV
+        BI-->>Orch: Current-run verification export
         deactivate BI
         alt Verification missing or stale
-            Orch-->>Op: UNVERIFIED (exit 2)
+            Orch-->>Op: UNVERIFIED exit 2
         else Fresh verification available
             Orch->>Orch: Compare BI totals with validated CSV
             alt Checksum mismatch
-                Orch-->>Op: FAILED (exit 1)
+                Orch-->>Op: FAILED exit 1
             else Downstream comparison passes
                 opt Field plausibility warnings detected
-                    Orch->>Ctrl: Sub-Process 6: Generate controller review drafts
+                    Orch->>Ctrl: Sub-process 6 - controller review drafts
                 end
-                Orch-->>Op: SUCCESS (exit 0)
+                Orch-->>Op: SUCCESS exit 0
             end
         end
     end

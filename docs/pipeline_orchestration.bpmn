@@ -1,750 +1,251 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_PipelineOrchestration" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.50.1">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_PipelineOrchestration" targetNamespace="https://github.com/mattbang/enterprise-commercial-etl-pipeline/docs" exporter="Codex" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_Pipeline">
-    <bpmn:participant id="Participant_Pipeline" name="Automated Commercial BI &#38; ETL Pipeline" processRef="Process_PipelineOrchestration" />
+    <bpmn:participant id="Participant_Pipeline" name="Production Case Study Pipeline" processRef="Process_PipelineOrchestration" />
   </bpmn:collaboration>
-  <bpmn:process id="Process_PipelineOrchestration" name="Pipeline Orchestration Process" isExecutable="true">
+  <bpmn:process id="Process_PipelineOrchestration" name="Portfolio-Safe Commercial ETL Orchestration" isExecutable="false">
     <bpmn:laneSet id="LaneSet_Main">
-      <bpmn:lane id="Lane_Operator" name="Operator &#38; Business Controllers">
+      <bpmn:lane id="Lane_Operator" name="Operator / Scheduler">
         <bpmn:flowNodeRef>StartEvent_WeeklyTrigger</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_BlockPublication</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>EndEvent_Failed</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>EndEvent_CompletedWithActions</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_CircuitBreaker</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>SubProcess_GovernanceAlerting</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="Lane_Orchestration" name="Master Python Orchestrator &#38; ETL Engine">
-        <bpmn:flowNodeRef>Gateway_SoftAnomalies</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_SendSuccessEmail</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>EndEvent_CompletedClean</bpmn:flowNodeRef>
+      <bpmn:lane id="Lane_Orchestrator" name="Master Orchestrator">
         <bpmn:flowNodeRef>SubProcess_PreFlight</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>SubProcess_ETLTransform</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>SubProcess_Run17Checks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>SubProcess_QualityGates</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_QualityPass</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Success</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="Lane_Ingestion" name="Headless Browser Ingestion (Selenium + Auth)">
+      <bpmn:lane id="Lane_Ingestion" name="Ingestion Layer">
         <bpmn:flowNodeRef>SubProcess_DownloadSources</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_DownstreamMatch</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_FieldReview</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="Lane_CloudBI" name="Qlik Cloud Analytics Engine">
-        <bpmn:flowNodeRef>SubProcess_CloudBIReload</bpmn:flowNodeRef>
+      <bpmn:lane id="Lane_BI" name="Cloud BI Platform">
+        <bpmn:flowNodeRef>SubProcess_CloudReload</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Verified</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Unverified</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Unverified</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
-    <bpmn:startEvent id="StartEvent_WeeklyTrigger" name="Weekly Scheduled Trigger">
-      <bpmn:outgoing>Flow_Start_to_PF</bpmn:outgoing>
+    <bpmn:startEvent id="StartEvent_WeeklyTrigger" name="Weekly trigger">
+      <bpmn:outgoing>Flow_Start_to_PreFlight</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:subProcess id="SubProcess_PreFlight" name="1. Pre-Flight Environment &#38; Lock Validation">
-      <bpmn:documentation>Validates OS environment, directory resolution, BI tenant connectivity, and terminates lingering background browser tasks.</bpmn:documentation>
-      <bpmn:incoming>Flow_Start_to_PF</bpmn:incoming>
-      <bpmn:outgoing>Flow_PF_to_DL</bpmn:outgoing>
-      <bpmn:startEvent id="Start_PF" name="Start Pre-Flight">
-        <bpmn:outgoing>Flow_PF_1</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:serviceTask id="Task_PF_EnvVars" name="Resolve System Paths &#38; Config Mappings">
-        <bpmn:documentation>Expands ${MIDWEST_ROOT} and validates config/mappings.yaml.</bpmn:documentation>
-        <bpmn:incoming>Flow_PF_1</bpmn:incoming>
-        <bpmn:outgoing>Flow_PF_2</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_PF_KillZombies" name="Clear OS File Locks &#38; Kill Zombie Processes">
-        <bpmn:documentation>Terminates orphan chrome.exe tasks and removes temporary ~$*.xlsx locks.</bpmn:documentation>
-        <bpmn:incoming>Flow_PF_2</bpmn:incoming>
-        <bpmn:outgoing>Flow_PF_3</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_PF_VpnCheck" name="Verify BI Cloud Network Connectivity">
-        <bpmn:documentation>Pings Qlik Cloud tenant URL to verify approved authentication route.</bpmn:documentation>
-        <bpmn:incoming>Flow_PF_3</bpmn:incoming>
-        <bpmn:outgoing>Flow_PF_4</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:endEvent id="End_PF" name="Environment Validated">
-        <bpmn:incoming>Flow_PF_4</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_PF_1" sourceRef="Start_PF" targetRef="Task_PF_EnvVars" />
-      <bpmn:sequenceFlow id="Flow_PF_2" sourceRef="Task_PF_EnvVars" targetRef="Task_PF_KillZombies" />
-      <bpmn:sequenceFlow id="Flow_PF_3" sourceRef="Task_PF_KillZombies" targetRef="Task_PF_VpnCheck" />
-      <bpmn:sequenceFlow id="Flow_PF_4" sourceRef="Task_PF_VpnCheck" targetRef="End_PF" />
+    <bpmn:subProcess id="SubProcess_PreFlight" name="1. Pre-flight config and locks">
+      <bpmn:documentation>Validates synthetic public config, resolves paths, checks locks, and confirms runtime prerequisites.</bpmn:documentation>
+      <bpmn:incoming>Flow_Start_to_PreFlight</bpmn:incoming>
+      <bpmn:outgoing>Flow_PreFlight_to_Ingestion</bpmn:outgoing>
     </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_ETLTransform" name="3. Vectorized ETL &#38; 3-Scenario Financial Disaggregation">
-      <bpmn:documentation>Normalizes multi-country European formats, applies clinical product logic, and synthesizes 3 strategic reporting views.</bpmn:documentation>
-      <bpmn:incoming>Flow_DL_to_ETL</bpmn:incoming>
-      <bpmn:outgoing>Flow_ETL_to_Reload</bpmn:outgoing>
-      <bpmn:startEvent id="Start_ETL" name="Start Transformation">
-        <bpmn:outgoing>Flow_ETL_1</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:serviceTask id="Task_ETL_Schema" name="Validate Schemas &#38; Header Structure (Pandera)">
-        <bpmn:documentation>Enforces strict column presence, data types, and primary dimension keys.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_1</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_2</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_Numeric" name="Coerce Heterogeneous European &#38; US Numbers">
-        <bpmn:documentation>Executes the shared num_smart() parser to convert German comma decimals (1.234,50), US mixed separators, and Swiss apostrophes (1'234) into IEEE floats. Ambiguous single separators require an explicit source policy.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_2</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_3</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_Territories" name="Remap Country Codes &#38; Consolidate Export Territories">
-        <bpmn:documentation>Resolves aliases (UK-&gt;GB, EL-&gt;GR) and maps 13 export territories into standard parent entities.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_3</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_4</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_ClinicalSplits" name="Execute Clinical Therapy Splits &#38; Group Logic">
-        <bpmn:documentation>Calculates single-chamber vs dual-chamber leadless splits and transseptal consolidation rules.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_4</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_5</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_Disaggregation" name="Synthesize 3 Commercial Scenarios (Full, Addressable, Weighted)">
-        <bpmn:documentation>Disaggregates annual market figures into quarters and dynamically generates 3 distinct reporting scenarios.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_5</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_6</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_Conservation" name="Enforce Unit Conservation Law Across Scenarios">
-        <bpmn:documentation>Verifies that internal organization units remain mathematically identical across all 3 market views.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_6</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_7</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_ETL_Export" name="Stage Candidate Dataset &#38; QA Report">
-        <bpmn:documentation>Prepares candidate output without replacing the last validated published dataset.</bpmn:documentation>
-        <bpmn:incoming>Flow_ETL_7</bpmn:incoming>
-        <bpmn:outgoing>Flow_ETL_8</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:endEvent id="End_ETL" name="Candidate Ready for Blocking Validation">
-        <bpmn:incoming>Flow_ETL_8</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_ETL_1" sourceRef="Start_ETL" targetRef="Task_ETL_Schema" />
-      <bpmn:sequenceFlow id="Flow_ETL_2" sourceRef="Task_ETL_Schema" targetRef="Task_ETL_Numeric" />
-      <bpmn:sequenceFlow id="Flow_ETL_3" sourceRef="Task_ETL_Numeric" targetRef="Task_ETL_Territories" />
-      <bpmn:sequenceFlow id="Flow_ETL_4" sourceRef="Task_ETL_Territories" targetRef="Task_ETL_ClinicalSplits" />
-      <bpmn:sequenceFlow id="Flow_ETL_5" sourceRef="Task_ETL_ClinicalSplits" targetRef="Task_ETL_Disaggregation" />
-      <bpmn:sequenceFlow id="Flow_ETL_6" sourceRef="Task_ETL_Disaggregation" targetRef="Task_ETL_Conservation" />
-      <bpmn:sequenceFlow id="Flow_ETL_7" sourceRef="Task_ETL_Conservation" targetRef="Task_ETL_Export" />
-      <bpmn:sequenceFlow id="Flow_ETL_8" sourceRef="Task_ETL_Export" targetRef="End_ETL" />
+    <bpmn:subProcess id="SubProcess_DownloadSources" name="2. Ingest source exports">
+      <bpmn:documentation>Stages portfolio-safe source extracts through the ingestion boundary used by the public demo.</bpmn:documentation>
+      <bpmn:incoming>Flow_PreFlight_to_Ingestion</bpmn:incoming>
+      <bpmn:outgoing>Flow_Ingestion_to_Transform</bpmn:outgoing>
     </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_Run17Checks" name="4. Blocking Pre-Publication Quality Gates">
-      <bpmn:documentation>Evaluates structural and conservation checks before atomically replacing published datasets.</bpmn:documentation>
-      <bpmn:incoming>Flow_ETL_to_Reload</bpmn:incoming>
+    <bpmn:subProcess id="SubProcess_ETLTransform" name="3. Transform candidate data">
+      <bpmn:documentation>Normalizes source data, applies mapping logic, builds scenarios, and stages a candidate dataset.</bpmn:documentation>
+      <bpmn:incoming>Flow_Ingestion_to_Transform</bpmn:incoming>
+      <bpmn:outgoing>Flow_Transform_to_QA</bpmn:outgoing>
+    </bpmn:subProcess>
+    <bpmn:subProcess id="SubProcess_QualityGates" name="4. Blocking quality gates">
+      <bpmn:documentation>Runs blocking structural, reconciliation, and freshness checks before publication.</bpmn:documentation>
+      <bpmn:incoming>Flow_Transform_to_QA</bpmn:incoming>
       <bpmn:outgoing>Flow_QA_to_Gateway</bpmn:outgoing>
-      <bpmn:startEvent id="Start_QA" name="Start Quality Gates">
-        <bpmn:outgoing>Flow_QA_1</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:serviceTask id="Task_QA_Tier1" name="Tier 1: File Existence &#38; Freshness Audit (Check 1)">
-        <bpmn:documentation>Asserts all output CSVs and Excels exist with fresh execution timestamps and non-zero bytes.</bpmn:documentation>
-        <bpmn:incoming>Flow_QA_1</bpmn:incoming>
-        <bpmn:outgoing>Flow_QA_2</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_QA_Tier2" name="Tier 2: Dimension Completeness &#38; Row Sanity (Checks 2, 8)">
-        <bpmn:documentation>Validates null-rate caps on mandatory dimensions (Country, Product) and checks minimum row thresholds.</bpmn:documentation>
-        <bpmn:incoming>Flow_QA_2</bpmn:incoming>
-        <bpmn:outgoing>Flow_QA_3</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_QA_Tier3_Recon" name="Tier 3: Source Reconciliation &#38; Country Preservation (Checks 3-6)">
-        <bpmn:documentation>Asserts input units equal output units across all transformations and guarantees 0 lost regions.</bpmn:documentation>
-        <bpmn:incoming>Flow_QA_3</bpmn:incoming>
-        <bpmn:outgoing>Flow_QA_4</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_QA_Tier3_Checksum" name="Publication Readiness: Passing QA Report &#38; Fresh Candidate">
-        <bpmn:documentation>Requires all blocking checks to pass before atomically publishing the candidate CSV.</bpmn:documentation>
-        <bpmn:incoming>Flow_QA_4</bpmn:incoming>
-        <bpmn:outgoing>Flow_QA_5</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_QA_Tier4" name="Tier 4: 10x Magnitude Spikes &#38; Velocity Jumps (Checks 7, 10, 14, 15, 17)">
-        <bpmn:documentation>Detects number formatting inflations (ratio &gt; 10x), unapproved negative units, and extreme velocity shifts.</bpmn:documentation>
-        <bpmn:incoming>Flow_QA_5</bpmn:incoming>
-        <bpmn:outgoing>Flow_QA_6</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_QA_Tier5" name="Tier 5: Human-Error &#38; Field Heuristics Audit (Checks 11, 12, 13, 16)">
-        <bpmn:documentation>Scans forecast submissions for copy-paste duplicates, round numbers (exact 100s), and unchanged baselines.</bpmn:documentation>
-        <bpmn:incoming>Flow_QA_6</bpmn:incoming>
-        <bpmn:outgoing>Flow_QA_7</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:endEvent id="End_QA" name="Quality Audit Finished">
-        <bpmn:incoming>Flow_QA_7</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_QA_1" sourceRef="Start_QA" targetRef="Task_QA_Tier1" />
-      <bpmn:sequenceFlow id="Flow_QA_2" sourceRef="Task_QA_Tier1" targetRef="Task_QA_Tier2" />
-      <bpmn:sequenceFlow id="Flow_QA_3" sourceRef="Task_QA_Tier2" targetRef="Task_QA_Tier3_Recon" />
-      <bpmn:sequenceFlow id="Flow_QA_4" sourceRef="Task_QA_Tier3_Recon" targetRef="Task_QA_Tier3_Checksum" />
-      <bpmn:sequenceFlow id="Flow_QA_5" sourceRef="Task_QA_Tier3_Checksum" targetRef="Task_QA_Tier4" />
-      <bpmn:sequenceFlow id="Flow_QA_6" sourceRef="Task_QA_Tier4" targetRef="Task_QA_Tier5" />
-      <bpmn:sequenceFlow id="Flow_QA_7" sourceRef="Task_QA_Tier5" targetRef="End_QA" />
     </bpmn:subProcess>
-    <bpmn:exclusiveGateway id="Gateway_QualityPass" name="All Structural Gates Passed?">
+    <bpmn:exclusiveGateway id="Gateway_QualityPass" name="Passed?">
       <bpmn:incoming>Flow_QA_to_Gateway</bpmn:incoming>
-      <bpmn:outgoing>Flow_Gate_Pass</bpmn:outgoing>
-      <bpmn:outgoing>Flow_Gate_Fail</bpmn:outgoing>
+      <bpmn:outgoing>Flow_QA_Fail</bpmn:outgoing>
+      <bpmn:outgoing>Flow_QA_Pass</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:sendTask id="Task_CircuitBreaker" name="Block Publication &#38; Dispatch Failure Alert">
-      <bpmn:documentation>Returns exit code 1, preserves the prior validated dataset, and reports failed checks.</bpmn:documentation>
-      <bpmn:incoming>Flow_Gate_Fail</bpmn:incoming>
-      <bpmn:outgoing>Flow_Fail_to_End</bpmn:outgoing>
-    </bpmn:sendTask>
-    <bpmn:sequenceFlow id="Flow_Start_to_PF" sourceRef="StartEvent_WeeklyTrigger" targetRef="SubProcess_PreFlight" />
-    <bpmn:sequenceFlow id="Flow_PF_to_DL" sourceRef="SubProcess_PreFlight" targetRef="SubProcess_DownloadSources" />
-    <bpmn:sequenceFlow id="Flow_DL_to_ETL" sourceRef="SubProcess_DownloadSources" targetRef="SubProcess_ETLTransform" />
-    <bpmn:sequenceFlow id="Flow_ETL_to_Reload" sourceRef="SubProcess_ETLTransform" targetRef="SubProcess_Run17Checks" />
-    <bpmn:sequenceFlow id="Flow_Reload_to_QA" sourceRef="SubProcess_CloudBIReload" targetRef="Gateway_SoftAnomalies" />
-    <bpmn:sequenceFlow id="Flow_QA_to_Gateway" sourceRef="SubProcess_Run17Checks" targetRef="Gateway_QualityPass" />
-    <bpmn:sequenceFlow id="Flow_Gate_Fail" name="No (Fatal Discrepancy)" sourceRef="Gateway_QualityPass" targetRef="Task_CircuitBreaker" />
-    <bpmn:sequenceFlow id="Flow_Fail_to_End" sourceRef="Task_CircuitBreaker" targetRef="EndEvent_Failed" />
-    <bpmn:sequenceFlow id="Flow_Gate_Pass" name="Yes (Publish Candidate)" sourceRef="Gateway_QualityPass" targetRef="SubProcess_CloudBIReload" />
-    <bpmn:sequenceFlow id="Flow_Anomalies_Yes" name="Yes" sourceRef="Gateway_SoftAnomalies" targetRef="SubProcess_GovernanceAlerting" />
-    <bpmn:sequenceFlow id="Flow_Gov_to_End" sourceRef="SubProcess_GovernanceAlerting" targetRef="EndEvent_CompletedWithActions" />
-    <bpmn:sequenceFlow id="Flow_Anomalies_No" name="No" sourceRef="Gateway_SoftAnomalies" targetRef="Task_SendSuccessEmail" />
-    <bpmn:sequenceFlow id="Flow_Success_to_End" sourceRef="Task_SendSuccessEmail" targetRef="EndEvent_CompletedClean" />
-    <bpmn:subProcess id="SubProcess_DownloadSources" name="2. Headless Multi-Source Ingestion (Selenium + Auth)">
-      <bpmn:documentation>Autonomous download of 4 raw commercial datasets using a saved authenticated browser profile through browser-based exports.</bpmn:documentation>
-      <bpmn:incoming>Flow_PF_to_DL</bpmn:incoming>
-      <bpmn:outgoing>Flow_DL_to_ETL</bpmn:outgoing>
-      <bpmn:startEvent id="Start_DL" name="Start Ingestion">
-        <bpmn:outgoing>Flow_DL_1</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:serviceTask id="Task_DL_InitSession" name="Attach Persistent Browser Profile">
-        <bpmn:documentation>Loads encrypted user profile directory to maintain time-limited authenticated browser cookies.</bpmn:documentation>
-        <bpmn:incoming>Flow_DL_1</bpmn:incoming>
-        <bpmn:outgoing>Flow_DL_2</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_DL_Crm" name="Ingest CRM Commercial Actuals (Market Tracker)">
-        <bpmn:documentation>Navigates CRM export portal, triggers report generation, and captures Market Tracker CRM DL.xlsx.</bpmn:documentation>
-        <bpmn:incoming>Flow_DL_2</bpmn:incoming>
-        <bpmn:outgoing>Flow_DL_3</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_DL_Diagnostics" name="Ingest Quarterly Diagnostics Registry Extracts">
-        <bpmn:documentation>Downloads ICM_Market_DL.xlsx and ICM_BIO_DL.xlsx containing therapy unit volumes.</bpmn:documentation>
-        <bpmn:incoming>Flow_DL_3</bpmn:incoming>
-        <bpmn:outgoing>Flow_DL_4</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_DL_Forecasts" name="Ingest Corporate Planning Forecast Extracts">
-        <bpmn:documentation>Extracts live rolling forecast and synchronizes static quarterly planning baselines.</bpmn:documentation>
-        <bpmn:incoming>Flow_DL_4</bpmn:incoming>
-        <bpmn:outgoing>Flow_DL_5</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_DL_VerifyFiles" name="Poll Filesystem for Download Completion &#38; Size Stability">
-        <bpmn:documentation>Monitors OS download directory, validates absence of .crdownload temporary files, and verifies size &gt; 50KB.</bpmn:documentation>
-        <bpmn:incoming>Flow_DL_5</bpmn:incoming>
-        <bpmn:outgoing>Flow_DL_6</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:endEvent id="End_DL" name="Raw Feeds Staged in data/in/">
-        <bpmn:incoming>Flow_DL_6</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_DL_1" sourceRef="Start_DL" targetRef="Task_DL_InitSession" />
-      <bpmn:sequenceFlow id="Flow_DL_2" sourceRef="Task_DL_InitSession" targetRef="Task_DL_Crm" />
-      <bpmn:sequenceFlow id="Flow_DL_3" sourceRef="Task_DL_Crm" targetRef="Task_DL_Diagnostics" />
-      <bpmn:sequenceFlow id="Flow_DL_4" sourceRef="Task_DL_Diagnostics" targetRef="Task_DL_Forecasts" />
-      <bpmn:sequenceFlow id="Flow_DL_5" sourceRef="Task_DL_Forecasts" targetRef="Task_DL_VerifyFiles" />
-      <bpmn:sequenceFlow id="Flow_DL_6" sourceRef="Task_DL_VerifyFiles" targetRef="End_DL" />
-    </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_CloudBIReload" name="5. Cloud BI Reload &#38; Current-Run Verification">
-      <bpmn:documentation>Reloads the validated candidate, rejects stale verification evidence, and returns SUCCESS, FAILED, or UNVERIFIED.</bpmn:documentation>
-      <bpmn:incoming>Flow_Gate_Pass</bpmn:incoming>
-      <bpmn:outgoing>Flow_Reload_to_QA</bpmn:outgoing>
-      <bpmn:startEvent id="Start_BI" name="Start BI Reload">
-        <bpmn:outgoing>Flow_BI_1</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:serviceTask id="Task_BI_Trigger" name="Dispatch Cloud Application Reload Command">
-        <bpmn:documentation>Navigates Qlik Cloud Management API/DOM to initiate server-side data model reload.</bpmn:documentation>
-        <bpmn:incoming>Flow_BI_1</bpmn:incoming>
-        <bpmn:outgoing>Flow_BI_2</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:intermediateCatchEvent id="Timer_BI_Wait" name="Wait 45s for Cloud Processing">
-        <bpmn:incoming>Flow_BI_2</bpmn:incoming>
-        <bpmn:outgoing>Flow_BI_3</bpmn:outgoing>
-        <bpmn:timerEventDefinition id="TimerDef_BI">
-          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT45S</bpmn:timeDuration>
-        </bpmn:timerEventDefinition>
-      </bpmn:intermediateCatchEvent>
-      <bpmn:serviceTask id="Task_BI_PollStatus" name="Poll for Reload Completion &#38; Model Stabilization">
-        <bpmn:documentation>Asserts reload status is SUCCESS; checks server logs for indexing errors.</bpmn:documentation>
-        <bpmn:incoming>Flow_BI_3</bpmn:incoming>
-        <bpmn:outgoing>Flow_BI_4</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_BI_ExportVerification" name="Export Fresh Verification &#38; Reconcile Totals">
-        <bpmn:documentation>Accepts only current-run evidence and compares BI totals against the validated Python CSV.</bpmn:documentation>
-        <bpmn:incoming>Flow_BI_4</bpmn:incoming>
-        <bpmn:outgoing>Flow_BI_5</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:endEvent id="End_BI" name="Downstream Verification Passed">
-        <bpmn:incoming>Flow_BI_5</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_BI_1" sourceRef="Start_BI" targetRef="Task_BI_Trigger" />
-      <bpmn:sequenceFlow id="Flow_BI_2" sourceRef="Task_BI_Trigger" targetRef="Timer_BI_Wait" />
-      <bpmn:sequenceFlow id="Flow_BI_3" sourceRef="Timer_BI_Wait" targetRef="Task_BI_PollStatus" />
-      <bpmn:sequenceFlow id="Flow_BI_4" sourceRef="Task_BI_PollStatus" targetRef="Task_BI_ExportVerification" />
-      <bpmn:sequenceFlow id="Flow_BI_5" sourceRef="Task_BI_ExportVerification" targetRef="End_BI" />
-    </bpmn:subProcess>
-    <bpmn:endEvent id="EndEvent_Failed" name="Pipeline Failed (Prior Valid Dataset Retained)">
-      <bpmn:incoming>Flow_Fail_to_End</bpmn:incoming>
-      <bpmn:errorEventDefinition id="ErrorDef_Main" />
+    <bpmn:serviceTask id="Task_BlockPublication" name="Block publish exit 1">
+      <bpmn:documentation>Stops publication, preserves the last valid dataset, and returns FAILED.</bpmn:documentation>
+      <bpmn:incoming>Flow_QA_Fail</bpmn:incoming>
+      <bpmn:incoming>Flow_Match_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_Block_to_Failed</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_Failed" name="FAILED">
+      <bpmn:incoming>Flow_Block_to_Failed</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:exclusiveGateway id="Gateway_SoftAnomalies" name="Field Plausibility Warnings Detected?">
-      <bpmn:incoming>Flow_Reload_to_QA</bpmn:incoming>
-      <bpmn:outgoing>Flow_Anomalies_Yes</bpmn:outgoing>
-      <bpmn:outgoing>Flow_Anomalies_No</bpmn:outgoing>
+    <bpmn:subProcess id="SubProcess_CloudReload" name="5. Reload BI and export proof">
+      <bpmn:documentation>Represents the production BI reload and current-run verification export.</bpmn:documentation>
+      <bpmn:incoming>Flow_QA_Pass</bpmn:incoming>
+      <bpmn:outgoing>Flow_Reload_to_Verified</bpmn:outgoing>
+    </bpmn:subProcess>
+    <bpmn:exclusiveGateway id="Gateway_Verified" name="Fresh?">
+      <bpmn:incoming>Flow_Reload_to_Verified</bpmn:incoming>
+      <bpmn:outgoing>Flow_Verified_No</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Verified_Yes</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:endEvent id="EndEvent_CompletedWithActions" name="Dashboard Live with Active Controller Review Items">
-      <bpmn:incoming>Flow_Gov_to_End</bpmn:incoming>
+    <bpmn:serviceTask id="Task_Unverified" name="Mark unverified exit 2">
+      <bpmn:documentation>Returns UNVERIFIED when downstream proof is absent or stale.</bpmn:documentation>
+      <bpmn:incoming>Flow_Verified_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_Unverified_to_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_Unverified" name="UNVERIFIED">
+      <bpmn:incoming>Flow_Unverified_to_End</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sendTask id="Task_SendSuccessEmail" name="Dispatch Clean Executive Summary Email">
-      <bpmn:documentation>Sends pass/fail metrics, execution timings, and verification timestamps to leadership.</bpmn:documentation>
-      <bpmn:incoming>Flow_Anomalies_No</bpmn:incoming>
-      <bpmn:outgoing>Flow_Success_to_End</bpmn:outgoing>
-    </bpmn:sendTask>
-    <bpmn:endEvent id="EndEvent_CompletedClean" name="Pipeline Execution Completed Cleanly">
-      <bpmn:incoming>Flow_Success_to_End</bpmn:incoming>
+    <bpmn:exclusiveGateway id="Gateway_DownstreamMatch" name="Match?">
+      <bpmn:incoming>Flow_Verified_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Match_No</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Match_Yes</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_FieldReview" name="6. Controller review drafts">
+      <bpmn:documentation>Generates controller review draft packages when warning-level field checks are present.</bpmn:documentation>
+      <bpmn:incoming>Flow_Match_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Review_to_Success</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_Success" name="SUCCESS">
+      <bpmn:incoming>Flow_Review_to_Success</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:subProcess id="SubProcess_GovernanceAlerting" name="6. Automated Field Governance &#38; Controller Distribution">
-      <bpmn:documentation>Compiles field warnings and automatically generates pre-filled HTML review drafts for regional financial controllers.</bpmn:documentation>
-      <bpmn:incoming>Flow_Anomalies_Yes</bpmn:incoming>
-      <bpmn:outgoing>Flow_Gov_to_End</bpmn:outgoing>
-      <bpmn:startEvent id="Start_GA" name="Start Field Governance">
-        <bpmn:outgoing>Flow_GA_1</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:serviceTask id="Task_GA_ParseAnomalies" name="Aggregate Country Anomaly Logs (QA_Forecast_Plausibility.csv)">
-        <bpmn:documentation>Filters detected copy-paste rows and velocity outliers by country code.</bpmn:documentation>
-        <bpmn:incoming>Flow_GA_1</bpmn:incoming>
-        <bpmn:outgoing>Flow_GA_2</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:serviceTask id="Task_GA_RenderHtml" name="Render Personalized HTML Controller Email Drafts">
-        <bpmn:documentation>Generates controller_drafts/{Country}_data_review.html containing formatted tables of flagged numbers.</bpmn:documentation>
-        <bpmn:incoming>Flow_GA_2</bpmn:incoming>
-        <bpmn:outgoing>Flow_GA_3</bpmn:outgoing>
-      </bpmn:serviceTask>
-      <bpmn:sendTask id="Task_GA_NotifyControllers" name="Stage Email Drafts &#38; Notify Regional Financial Controllers">
-        <bpmn:documentation>Alerts local finance controllers to review and adjust forecasts before board presentation.</bpmn:documentation>
-        <bpmn:incoming>Flow_GA_3</bpmn:incoming>
-        <bpmn:outgoing>Flow_GA_4</bpmn:outgoing>
-      </bpmn:sendTask>
-      <bpmn:endEvent id="End_GA" name="Field Review Dispatched">
-        <bpmn:incoming>Flow_GA_4</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_GA_1" sourceRef="Start_GA" targetRef="Task_GA_ParseAnomalies" />
-      <bpmn:sequenceFlow id="Flow_GA_2" sourceRef="Task_GA_ParseAnomalies" targetRef="Task_GA_RenderHtml" />
-      <bpmn:sequenceFlow id="Flow_GA_3" sourceRef="Task_GA_RenderHtml" targetRef="Task_GA_NotifyControllers" />
-      <bpmn:sequenceFlow id="Flow_GA_4" sourceRef="Task_GA_NotifyControllers" targetRef="End_GA" />
-    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="Flow_Start_to_PreFlight" sourceRef="StartEvent_WeeklyTrigger" targetRef="SubProcess_PreFlight" />
+    <bpmn:sequenceFlow id="Flow_PreFlight_to_Ingestion" sourceRef="SubProcess_PreFlight" targetRef="SubProcess_DownloadSources" />
+    <bpmn:sequenceFlow id="Flow_Ingestion_to_Transform" sourceRef="SubProcess_DownloadSources" targetRef="SubProcess_ETLTransform" />
+    <bpmn:sequenceFlow id="Flow_Transform_to_QA" sourceRef="SubProcess_ETLTransform" targetRef="SubProcess_QualityGates" />
+    <bpmn:sequenceFlow id="Flow_QA_to_Gateway" sourceRef="SubProcess_QualityGates" targetRef="Gateway_QualityPass" />
+    <bpmn:sequenceFlow id="Flow_QA_Fail" name="fail" sourceRef="Gateway_QualityPass" targetRef="Task_BlockPublication" />
+    <bpmn:sequenceFlow id="Flow_Block_to_Failed" sourceRef="Task_BlockPublication" targetRef="EndEvent_Failed" />
+    <bpmn:sequenceFlow id="Flow_QA_Pass" name="pass" sourceRef="Gateway_QualityPass" targetRef="SubProcess_CloudReload" />
+    <bpmn:sequenceFlow id="Flow_Reload_to_Verified" sourceRef="SubProcess_CloudReload" targetRef="Gateway_Verified" />
+    <bpmn:sequenceFlow id="Flow_Verified_No" name="stale or missing" sourceRef="Gateway_Verified" targetRef="Task_Unverified" />
+    <bpmn:sequenceFlow id="Flow_Unverified_to_End" sourceRef="Task_Unverified" targetRef="EndEvent_Unverified" />
+    <bpmn:sequenceFlow id="Flow_Verified_Yes" name="fresh export" sourceRef="Gateway_Verified" targetRef="Gateway_DownstreamMatch" />
+    <bpmn:sequenceFlow id="Flow_Match_No" name="mismatch" sourceRef="Gateway_DownstreamMatch" targetRef="Task_BlockPublication" />
+    <bpmn:sequenceFlow id="Flow_Match_Yes" name="match" sourceRef="Gateway_DownstreamMatch" targetRef="Task_FieldReview" />
+    <bpmn:sequenceFlow id="Flow_Review_to_Success" sourceRef="Task_FieldReview" targetRef="EndEvent_Success" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_Main">
-    <bpmndi:BPMNPlane id="BPMNPlane_Main" bpmnElement="Collaboration_Pipeline">
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Pipeline">
+    <bpmndi:BPMNPlane id="BPMNPlane_Pipeline" bpmnElement="Collaboration_Pipeline">
       <bpmndi:BPMNShape id="Participant_Pipeline_di" bpmnElement="Participant_Pipeline" isHorizontal="true">
-        <dc:Bounds x="150" y="80" width="1870" height="740" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_CloudBI_di" bpmnElement="Lane_CloudBI" isHorizontal="true">
-        <dc:Bounds x="180" y="640" width="1840" height="180" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_Ingestion_di" bpmnElement="Lane_Ingestion" isHorizontal="true">
-        <dc:Bounds x="180" y="460" width="1840" height="180" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_Orchestration_di" bpmnElement="Lane_Orchestration" isHorizontal="true">
-        <dc:Bounds x="180" y="210" width="1840" height="250" />
+        <dc:Bounds x="80" y="40" width="1830" height="880" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_Operator_di" bpmnElement="Lane_Operator" isHorizontal="true">
-        <dc:Bounds x="180" y="80" width="1840" height="130" />
+        <dc:Bounds x="120" y="80" width="1750" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Orchestrator_di" bpmnElement="Lane_Orchestrator" isHorizontal="true">
+        <dc:Bounds x="120" y="250" width="1750" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Ingestion_di" bpmnElement="Lane_Ingestion" isHorizontal="true">
+        <dc:Bounds x="120" y="500" width="1750" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_BI_di" bpmnElement="Lane_BI" isHorizontal="true">
+        <dc:Bounds x="120" y="670" width="1750" height="210" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="StartEvent_WeeklyTrigger_di" bpmnElement="StartEvent_WeeklyTrigger">
-        <dc:Bounds x="222" y="122" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="200" y="165" width="80" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EndEvent_Failed_di" bpmnElement="EndEvent_Failed">
-        <dc:Bounds x="1452" y="122" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1469" y="165" width="81" height="40" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Gateway_SoftAnomalies_di" bpmnElement="Gateway_SoftAnomalies" isMarkerVisible="true">
-        <dc:Bounds x="1425" y="285" width="50" height="50" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1470" y="250" width="79" height="40" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EndEvent_CompletedWithActions_di" bpmnElement="EndEvent_CompletedWithActions">
-        <dc:Bounds x="1762" y="122" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1737" y="165" width="87" height="53" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_SendSuccessEmail_di" bpmnElement="Task_SendSuccessEmail">
-        <dc:Bounds x="1560" y="325" width="130" height="65" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EndEvent_CompletedClean_di" bpmnElement="EndEvent_CompletedClean">
-        <dc:Bounds x="1762" y="340" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1753" y="383" width="54" height="53" />
-        </bpmndi:BPMNLabel>
+        <dc:Bounds x="205" y="140" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_PreFlight_di" bpmnElement="SubProcess_PreFlight" isExpanded="false">
-        <dc:Bounds x="290" y="270" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SubProcess_ETLTransform_di" bpmnElement="SubProcess_ETLTransform" isExpanded="false">
-        <dc:Bounds x="680" y="270" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SubProcess_Run17Checks_di" bpmnElement="SubProcess_Run17Checks" isExpanded="false">
-        <dc:Bounds x="1080" y="270" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Gateway_QualityPass_di" bpmnElement="Gateway_QualityPass" isMarkerVisible="true">
-        <dc:Bounds x="1285" y="285" width="50" height="50" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1272" y="342" width="76" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_CircuitBreaker_di" bpmnElement="Task_CircuitBreaker">
-        <dc:Bounds x="1250" y="105" width="120" height="70" />
+        <dc:Bounds x="320" y="292" width="210" height="96" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_DownloadSources_di" bpmnElement="SubProcess_DownloadSources" isExpanded="false">
-        <dc:Bounds x="480" y="515" width="150" height="80" />
+        <dc:Bounds x="600" y="540" width="210" height="96" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SubProcess_CloudBIReload_di" bpmnElement="SubProcess_CloudBIReload" isExpanded="false">
-        <dc:Bounds x="1380" y="680" width="150" height="80" />
+      <bpmndi:BPMNShape id="SubProcess_ETLTransform_di" bpmnElement="SubProcess_ETLTransform" isExpanded="false">
+        <dc:Bounds x="880" y="292" width="210" height="96" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SubProcess_GovernanceAlerting_di" bpmnElement="SubProcess_GovernanceAlerting" isExpanded="false">
-        <dc:Bounds x="1560" y="100" width="150" height="80" />
+      <bpmndi:BPMNShape id="SubProcess_QualityGates_di" bpmnElement="SubProcess_QualityGates" isExpanded="false">
+        <dc:Bounds x="1160" y="292" width="210" height="96" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_Start_to_PF_di" bpmnElement="Flow_Start_to_PF">
-        <di:waypoint x="258" y="140" />
-        <di:waypoint x="360" y="140" />
-        <di:waypoint x="360" y="270" />
+      <bpmndi:BPMNShape id="Gateway_QualityPass_di" bpmnElement="Gateway_QualityPass">
+        <dc:Bounds x="1460" y="316" width="56" height="56" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_BlockPublication_di" bpmnElement="Task_BlockPublication">
+        <dc:Bounds x="1430" y="128" width="210" height="82" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Failed_di" bpmnElement="EndEvent_Failed">
+        <dc:Bounds x="1715" y="151" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProcess_CloudReload_di" bpmnElement="SubProcess_CloudReload" isExpanded="false">
+        <dc:Bounds x="1430" y="715" width="220" height="96" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Verified_di" bpmnElement="Gateway_Verified">
+        <dc:Bounds x="1185" y="740" width="56" height="56" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Unverified_di" bpmnElement="Task_Unverified">
+        <dc:Bounds x="895" y="715" width="220" height="82" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Unverified_di" bpmnElement="EndEvent_Unverified">
+        <dc:Bounds x="665" y="739" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_DownstreamMatch_di" bpmnElement="Gateway_DownstreamMatch">
+        <dc:Bounds x="1498" y="542" width="56" height="56" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_FieldReview_di" bpmnElement="Task_FieldReview">
+        <dc:Bounds x="1620" y="540" width="210" height="96" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Success_di" bpmnElement="EndEvent_Success">
+        <dc:Bounds x="1715" y="332" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_to_PreFlight_di" bpmnElement="Flow_Start_to_PreFlight">
+        <di:waypoint x="241" y="158" />
+        <di:waypoint x="280" y="158" />
+        <di:waypoint x="280" y="340" />
+        <di:waypoint x="320" y="340" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_PF_to_DL_di" bpmnElement="Flow_PF_to_DL">
-        <di:waypoint x="430" y="310" />
-        <di:waypoint x="455" y="310" />
-        <di:waypoint x="455" y="555" />
-        <di:waypoint x="480" y="555" />
+      <bpmndi:BPMNEdge id="Flow_PreFlight_to_Ingestion_di" bpmnElement="Flow_PreFlight_to_Ingestion">
+        <di:waypoint x="530" y="340" />
+        <di:waypoint x="565" y="340" />
+        <di:waypoint x="565" y="588" />
+        <di:waypoint x="600" y="588" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_DL_to_ETL_di" bpmnElement="Flow_DL_to_ETL">
-        <di:waypoint x="630" y="555" />
-        <di:waypoint x="655" y="555" />
-        <di:waypoint x="655" y="310" />
-        <di:waypoint x="680" y="310" />
+      <bpmndi:BPMNEdge id="Flow_Ingestion_to_Transform_di" bpmnElement="Flow_Ingestion_to_Transform">
+        <di:waypoint x="810" y="588" />
+        <di:waypoint x="846" y="588" />
+        <di:waypoint x="846" y="340" />
+        <di:waypoint x="880" y="340" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_to_Reload_di" bpmnElement="Flow_ETL_to_Reload">
-        <di:waypoint x="830" y="310" />
-        <di:waypoint x="1080" y="310" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Reload_to_QA_di" bpmnElement="Flow_Reload_to_QA">
-        <di:waypoint x="1455" y="680" />
-        <di:waypoint x="1450" y="335" />
+      <bpmndi:BPMNEdge id="Flow_Transform_to_QA_di" bpmnElement="Flow_Transform_to_QA">
+        <di:waypoint x="1090" y="340" />
+        <di:waypoint x="1160" y="340" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_QA_to_Gateway_di" bpmnElement="Flow_QA_to_Gateway">
-        <di:waypoint x="1230" y="310" />
-        <di:waypoint x="1285" y="310" />
+        <di:waypoint x="1370" y="340" />
+        <di:waypoint x="1460" y="344" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Gate_Fail_di" bpmnElement="Flow_Gate_Fail">
-        <di:waypoint x="1310" y="285" />
-        <di:waypoint x="1310" y="175" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1315" y="215" width="70" height="27" />
-        </bpmndi:BPMNLabel>
+      <bpmndi:BPMNEdge id="Flow_QA_Fail_di" bpmnElement="Flow_QA_Fail">
+        <di:waypoint x="1488" y="316" />
+        <di:waypoint x="1488" y="250" />
+        <di:waypoint x="1535" y="250" />
+        <di:waypoint x="1535" y="210" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Fail_to_End_di" bpmnElement="Flow_Fail_to_End">
-        <di:waypoint x="1370" y="140" />
-        <di:waypoint x="1452" y="140" />
+      <bpmndi:BPMNEdge id="Flow_Block_to_Failed_di" bpmnElement="Flow_Block_to_Failed">
+        <di:waypoint x="1640" y="169" />
+        <di:waypoint x="1715" y="169" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Gate_Pass_di" bpmnElement="Flow_Gate_Pass">
-        <di:waypoint x="1310" y="335" />
-        <di:waypoint x="1310" y="720" />
-        <di:waypoint x="1380" y="720" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1333" y="292" width="81" height="14" />
-        </bpmndi:BPMNLabel>
+      <bpmndi:BPMNEdge id="Flow_QA_Pass_di" bpmnElement="Flow_QA_Pass">
+        <di:waypoint x="1516" y="344" />
+        <di:waypoint x="1540" y="344" />
+        <di:waypoint x="1540" y="715" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Anomalies_Yes_di" bpmnElement="Flow_Anomalies_Yes">
-        <di:waypoint x="1450" y="285" />
-        <di:waypoint x="1450" y="140" />
-        <di:waypoint x="1560" y="140" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1458" y="210" width="18" height="14" />
-        </bpmndi:BPMNLabel>
+      <bpmndi:BPMNEdge id="Flow_Reload_to_Verified_di" bpmnElement="Flow_Reload_to_Verified">
+        <di:waypoint x="1430" y="763" />
+        <di:waypoint x="1241" y="768" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Gov_to_End_di" bpmnElement="Flow_Gov_to_End">
-        <di:waypoint x="1710" y="140" />
-        <di:waypoint x="1762" y="140" />
+      <bpmndi:BPMNEdge id="Flow_Verified_No_di" bpmnElement="Flow_Verified_No">
+        <di:waypoint x="1185" y="768" />
+        <di:waypoint x="1115" y="756" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Anomalies_No_di" bpmnElement="Flow_Anomalies_No">
-        <di:waypoint x="1450" y="335" />
-        <di:waypoint x="1450" y="358" />
-        <di:waypoint x="1560" y="358" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1467" y="363" width="15" height="14" />
-        </bpmndi:BPMNLabel>
+      <bpmndi:BPMNEdge id="Flow_Unverified_to_End_di" bpmnElement="Flow_Unverified_to_End">
+        <di:waypoint x="895" y="756" />
+        <di:waypoint x="701" y="757" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Success_to_End_di" bpmnElement="Flow_Success_to_End">
-        <di:waypoint x="1690" y="358" />
-        <di:waypoint x="1762" y="358" />
+      <bpmndi:BPMNEdge id="Flow_Verified_Yes_di" bpmnElement="Flow_Verified_Yes">
+        <di:waypoint x="1213" y="740" />
+        <di:waypoint x="1213" y="570" />
+        <di:waypoint x="1498" y="570" />
       </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_PreFlight">
-    <bpmndi:BPMNPlane id="BPMNPlane_PreFlight" bpmnElement="SubProcess_PreFlight">
-      <bpmndi:BPMNShape id="Start_PF_di" bpmnElement="Start_PF">
-        <dc:Bounds x="160" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_PF_EnvVars_di" bpmnElement="Task_PF_EnvVars">
-        <dc:Bounds x="250" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_PF_KillZombies_di" bpmnElement="Task_PF_KillZombies">
-        <dc:Bounds x="460" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_PF_VpnCheck_di" bpmnElement="Task_PF_VpnCheck">
-        <dc:Bounds x="670" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_PF_di" bpmnElement="End_PF">
-        <dc:Bounds x="880" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_PF_1_di" bpmnElement="Flow_PF_1">
-        <di:waypoint x="196" y="160" />
-        <di:waypoint x="250" y="160" />
+      <bpmndi:BPMNEdge id="Flow_Match_No_di" bpmnElement="Flow_Match_No">
+        <di:waypoint x="1526" y="542" />
+        <di:waypoint x="1535" y="542" />
+        <di:waypoint x="1535" y="210" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_PF_2_di" bpmnElement="Flow_PF_2">
-        <di:waypoint x="400" y="160" />
-        <di:waypoint x="460" y="160" />
+      <bpmndi:BPMNEdge id="Flow_Match_Yes_di" bpmnElement="Flow_Match_Yes">
+        <di:waypoint x="1554" y="570" />
+        <di:waypoint x="1620" y="588" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_PF_3_di" bpmnElement="Flow_PF_3">
-        <di:waypoint x="610" y="160" />
-        <di:waypoint x="670" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_PF_4_di" bpmnElement="Flow_PF_4">
-        <di:waypoint x="820" y="160" />
-        <di:waypoint x="880" y="160" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_DownloadSources">
-    <bpmndi:BPMNPlane id="BPMNPlane_DownloadSources" bpmnElement="SubProcess_DownloadSources">
-      <bpmndi:BPMNShape id="Start_DL_di" bpmnElement="Start_DL">
-        <dc:Bounds x="160" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DL_InitSession_di" bpmnElement="Task_DL_InitSession">
-        <dc:Bounds x="250" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DL_Crm_di" bpmnElement="Task_DL_Crm">
-        <dc:Bounds x="460" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DL_Diagnostics_di" bpmnElement="Task_DL_Diagnostics">
-        <dc:Bounds x="670" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DL_Forecasts_di" bpmnElement="Task_DL_Forecasts">
-        <dc:Bounds x="880" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DL_VerifyFiles_di" bpmnElement="Task_DL_VerifyFiles">
-        <dc:Bounds x="1090" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_DL_di" bpmnElement="End_DL">
-        <dc:Bounds x="1310" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_DL_1_di" bpmnElement="Flow_DL_1">
-        <di:waypoint x="196" y="160" />
-        <di:waypoint x="250" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_DL_2_di" bpmnElement="Flow_DL_2">
-        <di:waypoint x="400" y="160" />
-        <di:waypoint x="460" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_DL_3_di" bpmnElement="Flow_DL_3">
-        <di:waypoint x="610" y="160" />
-        <di:waypoint x="670" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_DL_4_di" bpmnElement="Flow_DL_4">
-        <di:waypoint x="820" y="160" />
-        <di:waypoint x="880" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_DL_5_di" bpmnElement="Flow_DL_5">
-        <di:waypoint x="1030" y="160" />
-        <di:waypoint x="1090" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_DL_6_di" bpmnElement="Flow_DL_6">
-        <di:waypoint x="1250" y="160" />
-        <di:waypoint x="1310" y="160" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_ETLTransform">
-    <bpmndi:BPMNPlane id="BPMNPlane_ETLTransform" bpmnElement="SubProcess_ETLTransform">
-      <bpmndi:BPMNShape id="Start_ETL_di" bpmnElement="Start_ETL">
-        <dc:Bounds x="140" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_Schema_di" bpmnElement="Task_ETL_Schema">
-        <dc:Bounds x="220" y="120" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_Numeric_di" bpmnElement="Task_ETL_Numeric">
-        <dc:Bounds x="400" y="120" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_Territories_di" bpmnElement="Task_ETL_Territories">
-        <dc:Bounds x="580" y="120" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_ClinicalSplits_di" bpmnElement="Task_ETL_ClinicalSplits">
-        <dc:Bounds x="760" y="120" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_Disaggregation_di" bpmnElement="Task_ETL_Disaggregation">
-        <dc:Bounds x="940" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_Conservation_di" bpmnElement="Task_ETL_Conservation">
-        <dc:Bounds x="1130" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ETL_Export_di" bpmnElement="Task_ETL_Export">
-        <dc:Bounds x="1320" y="120" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_ETL_di" bpmnElement="End_ETL">
-        <dc:Bounds x="1510" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_ETL_1_di" bpmnElement="Flow_ETL_1">
-        <di:waypoint x="176" y="160" />
-        <di:waypoint x="220" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_2_di" bpmnElement="Flow_ETL_2">
-        <di:waypoint x="360" y="160" />
-        <di:waypoint x="400" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_3_di" bpmnElement="Flow_ETL_3">
-        <di:waypoint x="540" y="160" />
-        <di:waypoint x="580" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_4_di" bpmnElement="Flow_ETL_4">
-        <di:waypoint x="720" y="160" />
-        <di:waypoint x="760" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_5_di" bpmnElement="Flow_ETL_5">
-        <di:waypoint x="900" y="160" />
-        <di:waypoint x="940" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_6_di" bpmnElement="Flow_ETL_6">
-        <di:waypoint x="1090" y="160" />
-        <di:waypoint x="1130" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_7_di" bpmnElement="Flow_ETL_7">
-        <di:waypoint x="1280" y="160" />
-        <di:waypoint x="1320" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ETL_8_di" bpmnElement="Flow_ETL_8">
-        <di:waypoint x="1460" y="160" />
-        <di:waypoint x="1510" y="160" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_CloudBIReload">
-    <bpmndi:BPMNPlane id="BPMNPlane_CloudBIReload" bpmnElement="SubProcess_CloudBIReload">
-      <bpmndi:BPMNShape id="Start_BI_di" bpmnElement="Start_BI">
-        <dc:Bounds x="160" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_BI_Trigger_di" bpmnElement="Task_BI_Trigger">
-        <dc:Bounds x="250" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Timer_BI_Wait_di" bpmnElement="Timer_BI_Wait">
-        <dc:Bounds x="452" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_BI_PollStatus_di" bpmnElement="Task_BI_PollStatus">
-        <dc:Bounds x="540" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_BI_ExportVerification_di" bpmnElement="Task_BI_ExportVerification">
-        <dc:Bounds x="740" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_BI_di" bpmnElement="End_BI">
-        <dc:Bounds x="950" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_BI_1_di" bpmnElement="Flow_BI_1">
-        <di:waypoint x="196" y="160" />
-        <di:waypoint x="250" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_BI_2_di" bpmnElement="Flow_BI_2">
-        <di:waypoint x="400" y="160" />
-        <di:waypoint x="452" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_BI_3_di" bpmnElement="Flow_BI_3">
-        <di:waypoint x="488" y="160" />
-        <di:waypoint x="540" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_BI_4_di" bpmnElement="Flow_BI_4">
-        <di:waypoint x="690" y="160" />
-        <di:waypoint x="740" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_BI_5_di" bpmnElement="Flow_BI_5">
-        <di:waypoint x="900" y="160" />
-        <di:waypoint x="950" y="160" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_Run17Checks">
-    <bpmndi:BPMNPlane id="BPMNPlane_Run17Checks" bpmnElement="SubProcess_Run17Checks">
-      <bpmndi:BPMNShape id="Start_QA_di" bpmnElement="Start_QA">
-        <dc:Bounds x="140" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_QA_Tier1_di" bpmnElement="Task_QA_Tier1">
-        <dc:Bounds x="220" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_QA_Tier2_di" bpmnElement="Task_QA_Tier2">
-        <dc:Bounds x="410" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_QA_Tier3_Recon_di" bpmnElement="Task_QA_Tier3_Recon">
-        <dc:Bounds x="600" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_QA_Tier3_Checksum_di" bpmnElement="Task_QA_Tier3_Checksum">
-        <dc:Bounds x="800" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_QA_Tier4_di" bpmnElement="Task_QA_Tier4">
-        <dc:Bounds x="1000" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_QA_Tier5_di" bpmnElement="Task_QA_Tier5">
-        <dc:Bounds x="1200" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_QA_di" bpmnElement="End_QA">
-        <dc:Bounds x="1400" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_QA_1_di" bpmnElement="Flow_QA_1">
-        <di:waypoint x="176" y="160" />
-        <di:waypoint x="220" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_QA_2_di" bpmnElement="Flow_QA_2">
-        <di:waypoint x="370" y="160" />
-        <di:waypoint x="410" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_QA_3_di" bpmnElement="Flow_QA_3">
-        <di:waypoint x="560" y="160" />
-        <di:waypoint x="600" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_QA_4_di" bpmnElement="Flow_QA_4">
-        <di:waypoint x="760" y="160" />
-        <di:waypoint x="800" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_QA_5_di" bpmnElement="Flow_QA_5">
-        <di:waypoint x="960" y="160" />
-        <di:waypoint x="1000" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_QA_6_di" bpmnElement="Flow_QA_6">
-        <di:waypoint x="1160" y="160" />
-        <di:waypoint x="1200" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_QA_7_di" bpmnElement="Flow_QA_7">
-        <di:waypoint x="1360" y="160" />
-        <di:waypoint x="1400" y="160" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_GovernanceAlerting">
-    <bpmndi:BPMNPlane id="BPMNPlane_GovernanceAlerting" bpmnElement="SubProcess_GovernanceAlerting">
-      <bpmndi:BPMNShape id="Start_GA_di" bpmnElement="Start_GA">
-        <dc:Bounds x="160" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_GA_ParseAnomalies_di" bpmnElement="Task_GA_ParseAnomalies">
-        <dc:Bounds x="250" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_GA_RenderHtml_di" bpmnElement="Task_GA_RenderHtml">
-        <dc:Bounds x="460" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_GA_NotifyControllers_di" bpmnElement="Task_GA_NotifyControllers">
-        <dc:Bounds x="670" y="120" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_GA_di" bpmnElement="End_GA">
-        <dc:Bounds x="880" y="142" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_GA_1_di" bpmnElement="Flow_GA_1">
-        <di:waypoint x="196" y="160" />
-        <di:waypoint x="250" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_GA_2_di" bpmnElement="Flow_GA_2">
-        <di:waypoint x="410" y="160" />
-        <di:waypoint x="460" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_GA_3_di" bpmnElement="Flow_GA_3">
-        <di:waypoint x="620" y="160" />
-        <di:waypoint x="670" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_GA_4_di" bpmnElement="Flow_GA_4">
-        <di:waypoint x="830" y="160" />
-        <di:waypoint x="880" y="160" />
+      <bpmndi:BPMNEdge id="Flow_Review_to_Success_di" bpmnElement="Flow_Review_to_Success">
+        <di:waypoint x="1725" y="540" />
+        <di:waypoint x="1725" y="388" />
+        <di:waypoint x="1733" y="368" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
