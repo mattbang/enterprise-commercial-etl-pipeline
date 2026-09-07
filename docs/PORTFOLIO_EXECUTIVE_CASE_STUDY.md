@@ -9,11 +9,11 @@
 
 ## 📌 Executive Summary
 
-To monitor regional market share and commercial performance across **8 European markets and 13 export territories**, commercial leadership required weekly consolidated dashboards reconciling multi-source actuals with forward-looking corporate forecasts.
+To serve regional finance across **9 countries**, commercial leadership required frequently refreshed Qlik Sense dashboards reconciling SAP sales actuals, MedTech Europe market data, Salesforce-entered forecast updates, and forward-looking sales and market-share forecasts maintained through an internal market-forecasting process I led during my tenure.
 
-Previously, this process was performed manually: downloading raw extracts from 4 disparate enterprise systems, manually cleaning and standardizing varying European number formats in Excel, merging records, and hand-validating figures. This manual workflow consumed **6 to 8 hours per cycle**, was vulnerable to human error, and created a critical single-person operational dependency.
+Previously, this process was performed manually: downloading raw sales, market, and forecast extracts, cleaning and standardizing varying European number formats in Excel, merging records, and hand-validating figures before Qlik Sense consumption. This manual workflow consumed **6 to 8 hours per cycle**, was vulnerable to human error, slowed the turnaround from forecast changes to updated management visuals, and created a critical single-person operational dependency.
 
-This project engineered an automated Python ETL and orchestration pipeline covering ingestion, transformation, multi-scenario financial modeling, cloud BI reloading, and validation. The production case study recorded execution in **under 4 minutes**, an approximately **98% reduction** from the manual baseline. The public repository demonstrates the transformation rules and blocking publication controls with synthetic data; private connectors and production services are intentionally excluded.
+This project engineered an automated Python ETL and orchestration pipeline covering ingestion, transformation, multi-scenario financial modeling, Qlik Sense reloading, and validation. The production case study recorded execution in **under 4 minutes**, an approximately **98% reduction** from the manual baseline, helping management review updated goals, market-share movement, and performance benchmarks much closer to the forecast update cycle. The public repository demonstrates the transformation rules and blocking publication controls with synthetic data; private connectors and production services are intentionally excluded.
 
 ---
 
@@ -21,7 +21,7 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 
 | Metric | Before (Manual Process) | After (Automated Pipeline) | Impact |
 | :--- | :--- | :--- | :--- |
-| **Cycle Execution Time** | 6 – 8.5 hours / run | **~4 minutes reported in production** | **Approximately 98% reported reduction** |
+| **Forecast-to-Visual Turnaround** | 6 – 8.5 hours / update cycle | **~4 minutes reported in production** | Faster management visibility into revised goals, market share, and performance benchmarks |
 | **Data Ingestion & Merge** | Manual download & Excel copy-paste | Headless Selenium + Vectorized Pandas | Fully automated multi-source ingestion |
 | **Data Quality Verification** | Ad-hoc manual spot-checks | **17 checks across five quality tiers** | Blocking pre-publication failures preserve the last valid dataset; downstream mismatches fail the run |
 | **Edge Case & Regression Coverage**| Zero formal test coverage | **Self-contained public unit, stress, and demo suite** | Handles European numbers, blanks, nulls, schema failures, and publication controls |
@@ -35,14 +35,15 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 ```
    ┌────────────────────────────────────────────────────────────────────────┐
    │                       MULTI-SOURCE INGESTION                           │
-   │  Commercial CRM        Corporate Planning      Diagnostics Feed        │
-   │  (Historical Actuals)  (Live/Static Forecasts) (Quarterly Registry)    │
+   │  SAP Sales Actuals     MedTech Europe Market   Salesforce Updates      │
+   │  (Historical Sales)    (Market Reference)      (Manual Forecast Edits) │
+   │  Internal Forecasting  (Sales & Market-Share Plans)                    │
    └───────────────────┬────────────────────────────────────────────────────┘
                        │ Automated Headless Browser Ingestion (Selenium + Auth)
                        ▼
    ┌────────────────────────────────────────────────────────────────────────┐
    │                  CORE ETL & FINANCIAL DISAGGREGATION                   │
-   │  • Unified country/territory remapping (8 core entities + 13 exports)   │
+   │  • Unified country and territory remapping for 9-country finance views  │
    │  • Robust numeric parsing (EU decimals `1.234,56` vs US formats)       │
    │  • Multi-scenario generation: Full Market, Addressable, Weighted Views │
    └───────────────────┬────────────────────────────────────────────────────┘
@@ -55,8 +56,8 @@ This project engineered an automated Python ETL and orchestration pipeline cover
                        │ Passing Candidate Published Atomically
                        ▼
    ┌────────────────────────────────────────────────────────────────────────┐
-   │              BI CLOUD RELOAD & CURRENT-RUN VERIFICATION                │
-   │  Reload, export fresh evidence, and reconcile against Python totals    │
+   │              QLIK SENSE RELOAD & CURRENT-RUN VERIFICATION              │
+   │  Reload dashboards, export fresh evidence, reconcile Python totals      │
    └───────────────────┬────────────────────────────────────────────────────┘
                        │
          ┌─────────────┼─────────────┐
@@ -70,7 +71,7 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 ## ⚙️ Core Technical Highlights
 
 1. **Multi-Scenario Commercial Modeling:**
-   Automated the dynamic disaggregation of quarterly diagnostic and market volumes across three strategic views (**Full Market**, **Addressable Market**, and **Addressable Weighted Market**), eliminating error-prone manual Excel modeling.
+   Automated the dynamic disaggregation of SAP sales actuals, MedTech Europe market references, Salesforce-entered forecast updates, and internally led sales and market-share forecasts across three strategic views (**Full Market**, **Addressable Market**, and **Addressable Weighted Market**), eliminating error-prone manual Excel modeling.
 
 2. **Defense-in-Depth Quality Assurance and Blocking Publication:**
    Engineered 17 independent automated checks categorized into:
@@ -94,4 +95,4 @@ This project engineered an automated Python ETL and orchestration pipeline cover
 * **Language & Core:** Python 3.10+, Pandas, NumPy, PyYAML
 * **Automation & Orchestration:** Selenium WebDriver (Persistent Browser Profile Session), Custom Orchestrator
 * **Data Validation & Testing:** Pytest, Pandera Schema Validation, temporary synthetic fixtures, custom anomaly rules
-* **BI & Consumption:** Qlik Cloud Analytics Engine, Automated SMTP Reporting, Responsive HTML/CSS Email Templates
+* **BI & Consumption:** Qlik Sense Analytics, Automated SMTP Reporting, Responsive HTML/CSS Email Templates

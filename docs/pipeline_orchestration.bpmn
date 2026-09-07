@@ -22,7 +22,7 @@
         <bpmn:flowNodeRef>Gateway_DownstreamMatch</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_FieldReview</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="Lane_BI" name="Cloud BI Platform">
+      <bpmn:lane id="Lane_BI" name="Qlik Sense BI">
         <bpmn:flowNodeRef>SubProcess_CloudReload</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_Verified</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_Unverified</bpmn:flowNodeRef>
@@ -37,13 +37,13 @@
       <bpmn:incoming>Flow_Start_to_PreFlight</bpmn:incoming>
       <bpmn:outgoing>Flow_PreFlight_to_Ingestion</bpmn:outgoing>
     </bpmn:subProcess>
-    <bpmn:subProcess id="SubProcess_DownloadSources" name="2. Ingest source exports">
-      <bpmn:documentation>Stages portfolio-safe source extracts through the ingestion boundary used by the public demo.</bpmn:documentation>
+    <bpmn:subProcess id="SubProcess_DownloadSources" name="2. Ingest SAP, Salesforce, market forecasts">
+      <bpmn:documentation>Stages SAP sales downloads, Salesforce-entered forecast updates, MedTech Europe market reference data, and internally maintained sales and market-share forecasts through the portfolio-safe ingestion boundary.</bpmn:documentation>
       <bpmn:incoming>Flow_PreFlight_to_Ingestion</bpmn:incoming>
       <bpmn:outgoing>Flow_Ingestion_to_Transform</bpmn:outgoing>
     </bpmn:subProcess>
     <bpmn:subProcess id="SubProcess_ETLTransform" name="3. Transform candidate data">
-      <bpmn:documentation>Normalizes source data, applies mapping logic, builds scenarios, and stages a candidate dataset.</bpmn:documentation>
+      <bpmn:documentation>Normalizes source data, applies mapping logic, builds 9-country regional finance scenarios, and stages a candidate dataset.</bpmn:documentation>
       <bpmn:incoming>Flow_Ingestion_to_Transform</bpmn:incoming>
       <bpmn:outgoing>Flow_Transform_to_QA</bpmn:outgoing>
     </bpmn:subProcess>
@@ -66,8 +66,8 @@
     <bpmn:endEvent id="EndEvent_Failed" name="FAILED">
       <bpmn:incoming>Flow_Block_to_Failed</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:subProcess id="SubProcess_CloudReload" name="5. Reload BI and export proof">
-      <bpmn:documentation>Represents the production BI reload and current-run verification export.</bpmn:documentation>
+    <bpmn:subProcess id="SubProcess_CloudReload" name="5. Reload Qlik Sense and verify">
+      <bpmn:documentation>Represents the production Qlik Sense reload and current-run verification export.</bpmn:documentation>
       <bpmn:incoming>Flow_QA_Pass</bpmn:incoming>
       <bpmn:outgoing>Flow_Reload_to_Verified</bpmn:outgoing>
     </bpmn:subProcess>
@@ -137,7 +137,7 @@
         <dc:Bounds x="320" y="292" width="210" height="96" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_DownloadSources_di" bpmnElement="SubProcess_DownloadSources" isExpanded="false">
-        <dc:Bounds x="600" y="540" width="210" height="96" />
+        <dc:Bounds x="590" y="540" width="250" height="96" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_ETLTransform_di" bpmnElement="SubProcess_ETLTransform" isExpanded="false">
         <dc:Bounds x="880" y="292" width="210" height="96" />
@@ -185,10 +185,10 @@
         <di:waypoint x="530" y="340" />
         <di:waypoint x="565" y="340" />
         <di:waypoint x="565" y="588" />
-        <di:waypoint x="600" y="588" />
+        <di:waypoint x="590" y="588" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Ingestion_to_Transform_di" bpmnElement="Flow_Ingestion_to_Transform">
-        <di:waypoint x="810" y="588" />
+        <di:waypoint x="840" y="588" />
         <di:waypoint x="846" y="588" />
         <di:waypoint x="846" y="340" />
         <di:waypoint x="880" y="340" />

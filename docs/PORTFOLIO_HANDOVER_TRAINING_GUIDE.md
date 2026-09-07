@@ -57,7 +57,7 @@ Never infer success from a completion message alone. The process has three expli
                                          │
      ┌───────────────────────────────────┼───────────────────────────────────┐
      ▼                                   ▼                                   ▼
-[1. CLI Terminal]              [2. Automated Email]           [3. Cloud BI Evidence]
+[1. CLI Terminal]              [2. Automated Email]           [3. Qlik Sense Evidence]
 SUCCESS = exit 0               Subject matches terminal       Current-run verification
 FAILED = exit 1                state and includes QA detail    timestamp and expected totals
 UNVERIFIED = exit 2
@@ -114,12 +114,12 @@ When an operational exception occurs, reference this structured diagnosis matrix
 |---|:---|:---|:---|
 | **1** | `TimeoutException` during download | Expired browser session or stale background browser process. | Kill orphan Chrome tasks in Task Manager; execute Playbook C above. |
 | **2** | `PermissionError: [Errno 13]` | An Excel file in `data/` is locked by a user. | Close all local Excel windows; delete temporary `~$*.xlsx` lock files. |
-| **3** | `[FAILED] ASP Checksum` | Cloud BI data model totals differ from CSV. | Wait 2 minutes for cloud indexing; re-run `orchestrate_update.py --skip-downloads`. |
+| **3** | `[FAILED] ASP Checksum` | Qlik Sense data model totals differ from CSV. | Wait 2 minutes for BI indexing; re-run `orchestrate_update.py --skip-downloads`. |
 | **4** | `KeyError: 'COLUMN_NAME'` | Upstream extract modified header format. | Compare raw extract headers with `core/schemas.py`; update column aliases. |
 | **5** | `[FAILED] Check #7 Magnitude` | European comma/decimal format inversion. | Check source file for thousands formatting (`1.234,50` vs `1,234.50`); run regex parser. |
 | **6** | `[FAILED] Check #3 Country Drop`| Unmapped territory or overseas code. | Add country code to `country_code_map` in `config/mappings.yaml`. |
 | **7** | `[FAILED] Row Count Sanity` | Incomplete download or empty source file. | Inspect `data/in/`; confirm source extract file size is $>50\text{ KB}$. |
-| **8** | `503 Service Unavailable` | Cloud BI API undergoing cloud maintenance. | Inspect corporate IT status page; retry execution once API restores. |
+| **8** | `503 Service Unavailable` | Qlik Sense API undergoing service maintenance. | Inspect the appropriate service status page; retry execution once API restores. |
 | **9** | `ModuleNotFoundError` | Virtual environment dependencies missing. | Execute `pip install -r requirements.txt` in terminal. |
 | **10**| `UnicodeDecodeError` | Source CSV saved in non-standard encoding. | Re-save source extract in UTF-8 or update `read_csv(encoding='latin-1')`. |
 | **11**| `[FAILED] Negative Units` | Large unapproved negative unit quantity. | Check `data/out/QA_Forecast_Plausibility.csv`; verify if return or formula error. |

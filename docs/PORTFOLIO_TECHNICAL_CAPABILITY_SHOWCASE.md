@@ -14,7 +14,7 @@
 | **1** | **Dynamic Multi-Scenario Modeling** | Business requires 3 different strategic views of market share without manual Excel pivot models. | Vectorized quarterly disaggregation and synthetic row generation conserving organization volume. | Pandas, NumPy |
 | **2** | **Headless Authenticated Ingestion Engine** | Upstream enterprise portals lack public REST APIs; require authenticated browser downloads. | Headless Selenium automation with persistent user profile, auto-wait conditions, and retry loops. | Selenium, Chrome WebDriver |
 | **3** | **Heterogeneous EU/US Numeric Normalizer** | Source files mix European comma decimals (`1.234,50`), US dots (`1,234.50`), and apostrophe separators (`1'234`). | Validated locale-aware parser with explicit handling for ambiguous single separators. | Python regex, Custom Parser |
-| **4** | **Closed-Loop Cloud BI Orchestration** | Triggering BI reloads blindly risks dashboards displaying corrupted or incomplete loads. | Two-way handshake: triggers Qlik Cloud reload, polls verification tables, and validates against CSV. | Qlik Cloud Engine, REST/DOM Polling |
+| **4** | **Closed-Loop Qlik Sense Orchestration** | Triggering BI reloads blindly risks dashboards displaying corrupted or incomplete loads. | Two-way handshake: triggers Qlik Sense reload, polls verification tables, and validates against CSV. | Qlik Sense, REST/DOM Polling |
 | **5** | **Field Governance Email Generator** | Manually emailing 8 regional controllers about input data anomalies takes hours of back-and-forth. | Automatic compilation of anomaly logs into localized, ready-to-forward responsive HTML email drafts. | Jinja2/HTML templates, SMTP |
 | **6** | **Synthetic Stress Harness** | Silent regressions occur when upstream systems tweak column names or insert unexpected nulls. | Self-contained pytest suite generates temporary corrupted spreadsheets and tests parser, schema, mapping, publication, and demo behavior. | Pytest, Pandera Schemas |
 
@@ -61,7 +61,7 @@ for macro strategy  competitive scope      commercial index
 ### 2. Resilient Headless Ingestion & Session Management
 
 #### The Challenge
-Data feeds originate from four disparate internal systems (Commercial CRM, Diagnostic Registries, and forecasting portals). None exposed public API endpoints; all required authenticated corporate enterprise sign-in.
+Data feeds originated from SAP sales downloads, MedTech Europe market reference files, Salesforce-entered employee forecast updates, and internally maintained sales forecast and market-share forecast inputs. The forecasting process was led by the pipeline owner during the production period and served regional finance reporting across 9 countries. Private source connectors are excluded from the public repository.
 
 #### The Solution (`integration/downloaders/`)
 Built an enterprise-grade web scraping and file ingestion layer using **Selenium WebDriver**:
@@ -98,10 +98,10 @@ Repeated grouping separators such as `1,234,567` are recognized as thousands gro
 
 ---
 
-### 4. Closed-Loop Cloud BI Orchestration & Post-Reload Reconciliation
+### 4. Closed-Loop Qlik Sense Orchestration & Post-Reload Reconciliation
 
 #### The Challenge
-Traditional data pipelines push data into a cloud BI platform (like Qlik Cloud, Tableau, or PowerBI) and terminate. If the cloud engine experiences an indexing failure, memory exhaustion, or load-script syntax issue, dashboards silently display stale or partial data.
+Traditional data pipelines push data into a BI platform and terminate. In this production case, Qlik Sense dashboards served regional finance and management users who used the visuals for goal setting, market-share review, and performance benchmarking. If the BI engine experienced an indexing failure, memory exhaustion, or load-script syntax issue, dashboards could silently display stale or partial data.
 
 #### The Solution (`integration/helpers/reload_helpers.py` & `validation_helpers.py`)
 Implemented a **blocking publication gate followed by a two-way verification handshake**:
@@ -110,7 +110,7 @@ Implemented a **blocking publication gate followed by a two-way verification han
 [Candidate Dataset] -> [Blocking QA]
        | failed              | passed
        v                     v
-[Retain Prior Dataset]  [Atomic Publication] -> [Qlik Reload]
+[Retain Prior Dataset]  [Atomic Publication] -> [Qlik Sense Reload]
                                                   |
                                                   v
                                       [Current-Run Verification]
@@ -132,7 +132,7 @@ Implemented a **blocking publication gate followed by a two-way verification han
 ### 5. Automated Field Governance: Local Controller Email Generator
 
 #### The Challenge
-When regional sales subsidiaries submit quarterly forecasts, manual errors inevitably slip in (e.g., duplicated past-year numbers, unrefined placeholder numbers like `500`, or missing quarters). Tracking down controllers across 8 countries required days of manual email drafting.
+When regional sales teams and employees submit quarterly sales and market-share forecast updates, including manual Salesforce updates, errors inevitably slip in (e.g., duplicated past-year numbers, unrefined placeholder numbers like `500`, or missing quarters). Tracking down finance controllers across 9 countries required days of manual email drafting.
 
 #### The Solution
 When the plausibility validation engine flags anomalies, it dynamically renders **tailored, responsive HTML email drafts** per country code (`controller_drafts/{Country_Code}_data_review.html`):
