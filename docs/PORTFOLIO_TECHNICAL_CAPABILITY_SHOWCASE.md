@@ -66,7 +66,7 @@ Forecast review focuses on patterns such as unchanged baselines, suspiciously ro
 
 The public pytest suite covers numeric parsing, mappings, schemas, scenario behavior, publication blocking, terminal statuses, and the synthetic demo. Temporary fixtures exercise malformed inputs. Checks requiring excluded connectors or production artifacts skip explicitly when those dependencies are absent.
 
-Use [the README's demo and test commands](../README.md) for the supported workflow. A passing public run validates the covered local behavior; it does not verify authentication, a live Qlik tenant, or the historical four-minute production runtime.
+Use [the README's demo and test commands](../README.md) for the supported workflow. A passing public run validates the covered local behavior; it does not verify authentication, a live Qlik tenant, or a historical processing-time comparison.
 
 ## Further Reading
 

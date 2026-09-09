@@ -17,7 +17,7 @@ The public demo has no network calls and requires no browser profile, tenant, sh
 
 ## Production case study
 
-`orchestrate_update.py` and the detailed architecture documents describe the original production operating model. That path depended on private ingestion, cloud reload, authentication, notification, and downstream verification modules that are intentionally not published.
+`orchestrate_update.py` and the detailed architecture documents describe the production operating model with current portfolio refinements. The repository is not an unchanged historical source snapshot. That path depended on private ingestion, cloud reload, authentication, notification, and downstream verification modules that are intentionally not published.
 
 The production orchestrator is retained as architectural evidence. It is not the public Quick Start and is not expected to run without the private integration package and environment-specific configuration.
 

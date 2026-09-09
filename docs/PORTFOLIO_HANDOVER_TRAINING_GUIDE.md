@@ -40,7 +40,7 @@ python orchestrate_update.py
 
 | Operational Scenario | Command | Execution Behavior |
 | :--- | :--- | :--- |
-| **Standard Weekly Run** | `python orchestrate_update.py` | Full end-to-end cycle (~4 minutes total). |
+| **Standard Weekly Run** | `python orchestrate_update.py` | Configured reporting cycle; elapsed time depends on sources and refresh behaviour. |
 | **Config/Mapping Update** | `python orchestrate_update.py --skip-downloads` | Skips web downloads; re-processes existing raw files (~1 minute total). |
 | **Safe Dry-Run Simulation** | `python orchestrate_update.py --dry-run` | Tests transformations without triggering cloud BI reload or sending emails. |
 
