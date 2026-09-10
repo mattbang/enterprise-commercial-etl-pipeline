@@ -1,10 +1,14 @@
 # Forecast-to-Qlik: From Manual Preparation to Management Review
 
-**Replaced a recurring Excel calculation and upload cycle with integrated market and forecast reporting across nine countries.**
+**Give regional planning decisions the market context that a raw forecast feed could not provide.**
 
-I coordinated country, finance and IT requirements and built the additional integration, business calculations and validation around an existing Salesforce-to-Qlik feed. The result gave management a consistent view of performance, market opportunity and changing expectations.
+An existing Salesforce-to-Qlik feed lacked the additional market sources, checks, adjustments and reporting views management needed. Each update required a separate Excel calculation and upload cycle.
 
-[See a demo result](docs/DEMO_OUTPUT_WALKTHROUGH.md) · [Website case study](https://matthew-bangle-data-portfolio.mattbangle.chatgpt.site/work/forecast-to-qlik) · [My contribution and handover](docs/PORTFOLIO_EXECUTIVE_CASE_STUDY.md)
+**My contribution:** I coordinated country, finance and IT requirements and built the integration, business calculations and validation around that existing feed. I made market definitions, forecast baselines and exception handling explicit so the outputs could support opportunity and sales-goal discussions.
+
+**Result and status:** consistent forecast and market views across nine countries without the separate Excel calculation and upload. The public example demonstrates selected transformations and controls with fictional inputs; live connections are excluded. The historical workload and refresh limits are explained below.
+
+[Read the business case](https://matthew-bangle-data-portfolio.mattbangle.chatgpt.site/work/forecast-to-qlik) · [Run the public example](#run-and-inspect-the-implementation)
 
 ```mermaid
 flowchart LR
@@ -15,7 +19,7 @@ flowchart LR
     Q --> D[Review opportunity and sales goals]
 ```
 
-*Conceptual overview of the historical workflow. The public demo uses fictional data and selected controls; live connections are excluded.*
+*Conceptual historical workflow. The code below demonstrates selected transformations and controls with fictional data.*
 
 ## What changed for the business
 
@@ -87,6 +91,7 @@ The public production-reference orchestrator requires unpublished connectors and
 
 | Read further | What it helps you assess |
 | --- | --- |
+| [My contribution and handover](docs/PORTFOLIO_EXECUTIVE_CASE_STUDY.md) | Business context, responsibilities and operational delivery |
 | [Public demo boundary](docs/PUBLIC_DEMO_BOUNDARY.md) | What runs locally and which integrations are excluded |
 | [Quality matrix](docs/PORTFOLIO_DATA_QUALITY_MATRIX.md) | Blocking checks, downstream verification and review heuristics |
 | [Technical showcase](docs/PORTFOLIO_TECHNICAL_CAPABILITY_SHOWCASE.md) | Implementation and coverage |
