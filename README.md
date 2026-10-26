@@ -1,3 +1,5 @@
+**English** | [Deutsch](README.de.md)
+
 # Forecast-to-Qlik: From Manual Preparation to Management Review
 
 **Give regional planning decisions the market context that a raw forecast feed could not provide.**
